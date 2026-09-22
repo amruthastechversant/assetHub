@@ -1,151 +1,272 @@
 "use client";
 import React from "react";
+import Box from "@mui/material/Box";
+import Card from "@mui/material/Card";
+import CardContent from "@mui/material/CardContent";
+import Typography from "@mui/material/Typography";
+import Grid from "@mui/material/Grid";
+import Divider from "@mui/material/Divider";
+
+// Icons
+import DevicesOutlinedIcon from "@mui/icons-material/DevicesOutlined";
+import MemoryOutlinedIcon from "@mui/icons-material/MemoryOutlined";
+import StorageOutlinedIcon from "@mui/icons-material/StorageOutlined";
+import LaptopChromebookOutlinedIcon from "@mui/icons-material/LaptopChromebookOutlined";
+import ComputerOutlinedIcon from "@mui/icons-material/ComputerOutlined";
+import CalendarTodayOutlinedIcon from "@mui/icons-material/CalendarTodayOutlined";
+import CurrencyRupeeOutlinedIcon from "@mui/icons-material/CurrencyRupeeOutlined";
+import LocationOnOutlinedIcon from "@mui/icons-material/LocationOnOutlined";
+import SpeedOutlinedIcon from "@mui/icons-material/SpeedOutlined";
+
 import DeviceInfoItem from "@/components/device/DeviceInfoItem";
 import DeviceStatusBadge from "@/components/device/DeviceStatusBadge";
 import { formatDate, formatCurrency } from "@/lib/format";
-
-import Card from "@mui/material/Card";
-import CardContent from "@mui/material/CardContent";
-import Box from "@mui/material/Box";
-import Typography from "@mui/material/Typography";
-import IconButton from "@mui/material/IconButton";
-import Tooltip from "@mui/material/Tooltip";
-import BugReportIcon from "@mui/icons-material/BugReport";
-
-export interface DeviceDetailsType {
-  id?: string;
-  name?: string;
-  assetCode?: string;
-  assetType?: string;
-  model?: string;
-  storage?: string;
-  os?: string;
-  ram?: string;
-  processor?: string;
-  purchaseDate?: string;
-  status?: string;
-  purchaseAmount?: number;
-  location?: string;
-  [key: string]: any;
-}
+import type { DeviceDetail } from "@/types/device";
 
 interface Props {
-  device: DeviceDetailsType;
+  device: Partial<DeviceDetail>;
 }
 
-export default function DeviceDetails({ device }: Props) {
+// ── Section card wrapper ─────────────────────────────────────────────────────
+interface SectionCardProps {
+  icon: React.ReactElement;
+  title: string;
+  children: React.ReactNode;
+}
+
+function SectionCard({ icon, title, children }: SectionCardProps) {
   return (
     <Card
       elevation={0}
       sx={{
-        borderRadius: 4,
+        height: "100%",
+        borderRadius: 3,
         border: "1px solid rgba(148, 163, 184, 0.18)",
-        background: "linear-gradient(180deg, rgba(255,255,255,0.96) 0%, rgba(248,250,252,0.96) 100%)",
-        boxShadow: "0 18px 40px rgba(15, 23, 42, 0.06)",
-        overflow: "hidden",
+        bgcolor: "#ffffff",
+        boxShadow: "0 2px 12px rgba(15, 23, 42, 0.04)",
+        transition: "box-shadow 0.2s ease",
+        "&:hover": {
+          boxShadow: "0 6px 24px rgba(15, 23, 42, 0.08)",
+        },
       }}
     >
-      <CardContent sx={{ p: 2.1 }}>
+      <CardContent sx={{ p: { xs: 2, md: 2.5 } }}>
+        {/* Section header */}
         <Box
           sx={{
             display: "flex",
             alignItems: "center",
-            justifyContent: "space-between",
-            gap: 1.5,
+            gap: 1,
             mb: 2,
-            pb: 1.25,
-            borderBottom: "1px solid rgba(148, 163, 184, 0.16)",
+            pb: 1.5,
+            borderBottom: "1px solid rgba(148, 163, 184, 0.14)",
           }}
         >
-          <Typography
-            variant="h5"
-            component="h2"
+          <Box
+            aria-hidden
             sx={{
-              fontWeight: 800,
-              letterSpacing: "-0.05em",
-              color: "#0f172a",
-              fontSize: "1.35rem",
+              width: 32,
+              height: 32,
+              borderRadius: 1.5,
+              bgcolor: "#eff6ff",
+              border: "1px solid rgba(37, 99, 235, 0.12)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              color: "#2563eb",
+              flexShrink: 0,
             }}
           >
-            Device info
-          </Typography>
+            {React.cloneElement(icon, { fontSize: "small" } as object)}
+          </Box>
 
-          <Tooltip title="Report an issue" arrow placement="left">
-            <IconButton
-              aria-label="Report an issue"
-              sx={{
-                width: 36,
-                height: 36,
-                borderRadius: 2,
-                border: "1px solid rgba(239, 68, 68, 0.18)",
-                bgcolor: "#fff1f2",
-                color: "#e11d48",
-                boxShadow: "0 8px 18px rgba(225, 29, 72, 0.08)",
-                '&:hover': { bgcolor: "#ffe4e6" },
-              }}
-            >
-              <BugReportIcon fontSize="small" />
-            </IconButton>
-          </Tooltip>
+          <Typography
+            variant="subtitle1"
+            component="h2"
+            sx={{
+              fontWeight: 700,
+              color: "#0f172a",
+              fontSize: "0.88rem",
+              letterSpacing: "-0.01em",
+            }}
+          >
+            {title}
+          </Typography>
         </Box>
 
-        <Box
-          sx={{
-            display: "grid",
-            gridTemplateColumns: "1fr",
-            gap: 1.15,
-          }}
-        >
-          <Box sx={{ p: 1.2, borderRadius: 2.5, bgcolor: "#f8fafc", border: "1px solid rgba(148,163,184,0.12)" }}>
-            <DeviceInfoItem label="Asset Code" value={device.assetCode ?? device.id} />
-          </Box>
-
-          <Box sx={{ p: 1.2, borderRadius: 2.5, bgcolor: "#f8fafc", border: "1px solid rgba(148,163,184,0.12)" }}>
-            <DeviceInfoItem label="Asset Type" value={device.assetType} />
-          </Box>
-
-          <Box sx={{ p: 1.2, borderRadius: 2.5, bgcolor: "#f8fafc", border: "1px solid rgba(148,163,184,0.12)" }}>
-            <DeviceInfoItem label="Model" value={device.model} />
-          </Box>
-
-          <Box sx={{ p: 1.2, borderRadius: 2.5, bgcolor: "#f8fafc", border: "1px solid rgba(148,163,184,0.12)" }}>
-            <DeviceInfoItem label="Processor" value={device.processor} />
-          </Box>
-
-          <Box sx={{ p: 1.2, borderRadius: 2.5, bgcolor: "#f8fafc", border: "1px solid rgba(148,163,184,0.12)" }}>
-            <DeviceInfoItem label="RAM" value={device.ram} />
-          </Box>
-
-          <Box sx={{ p: 1.2, borderRadius: 2.5, bgcolor: "#f8fafc", border: "1px solid rgba(148,163,184,0.12)" }}>
-            <DeviceInfoItem label="Storage" value={device.storage} />
-          </Box>
-
-          <Box sx={{ p: 1.2, borderRadius: 2.5, bgcolor: "#f8fafc", border: "1px solid rgba(148,163,184,0.12)" }}>
-            <DeviceInfoItem label="OS" value={device.os} />
-          </Box>
-
-          <Box sx={{ p: 1.2, borderRadius: 2.5, bgcolor: "#f8fafc", border: "1px solid rgba(148,163,184,0.12)" }}>
-            <DeviceInfoItem label="Purchase Date" value={device.purchaseDate ? formatDate(device.purchaseDate) : undefined} />
-          </Box>
-
-          <Box sx={{ p: 1.2, borderRadius: 2.5, bgcolor: "#f8fafc", border: "1px solid rgba(148,163,184,0.12)" }}>
-            <Typography variant="subtitle2" color="text.secondary" sx={{ fontWeight: 700, fontSize: "0.72rem", letterSpacing: "0.04em", textTransform: "uppercase" }}>
-              Status
-            </Typography>
-            <Box sx={{ mt: 1 }}>
-              <DeviceStatusBadge status={device.status ?? "Available"} />
-            </Box>
-          </Box>
-
-          <Box sx={{ p: 1.2, borderRadius: 2.5, bgcolor: "#f8fafc", border: "1px solid rgba(148,163,184,0.12)" }}>
-            <DeviceInfoItem label="Purchase Amount" value={device.purchaseAmount ? formatCurrency(device.purchaseAmount) : undefined} />
-          </Box>
-
-          <Box sx={{ p: 1.2, borderRadius: 2.5, bgcolor: "#f8fafc", border: "1px solid rgba(148,163,184,0.12)" }}>
-            <DeviceInfoItem label="Location" value={device.location} />
-          </Box>
+        {/* Content */}
+        <Box sx={{ display: "flex", flexDirection: "column", gap: 1.75 }}>
+          {children}
         </Box>
       </CardContent>
     </Card>
+  );
+}
+
+// ── Main component ───────────────────────────────────────────────────────────
+export default function DeviceDetails({ device }: Props) {
+  const os = device.operatingSystem || (device as any).os;
+  const hasPurchaseAmount = "purchaseAmount" in device && device.purchaseAmount !== undefined;
+  const hasLocation = "location" in device && device.location !== undefined;
+  const hasPurchaseDate = "purchaseDate" in device && device.purchaseDate !== undefined;
+
+  return (
+    <Box>
+      <Grid container spacing={{ xs: 2, md: 2.5 }}>
+        {/* Device Information */}
+        <Grid size={{ xs: 12, md: 6 }}>
+          <SectionCard
+            icon={<DevicesOutlinedIcon />}
+            title="Device Information"
+          >
+            {"assetCode" in device && (
+              <>
+                <DeviceInfoItem label="Asset Code" value={device.assetCode} />
+                <Divider sx={{ borderColor: "rgba(148,163,184,0.12)" }} />
+              </>
+            )}
+            {"assetType" in device && (
+              <>
+                <DeviceInfoItem label="Asset Type" value={device.assetType} />
+                <Divider sx={{ borderColor: "rgba(148,163,184,0.12)" }} />
+              </>
+            )}
+            {"model" in device && (
+              <>
+                <DeviceInfoItem label="Model" value={device.model} />
+                <Divider sx={{ borderColor: "rgba(148,163,184,0.12)" }} />
+              </>
+            )}
+
+            {/* Status row */}
+            {"status" in device && device.status && (
+              <Box>
+                <Typography
+                  variant="caption"
+                  sx={{
+                    fontWeight: 700,
+                    letterSpacing: "0.06em",
+                    textTransform: "uppercase",
+                    color: "#64748b",
+                    fontSize: "0.68rem",
+                    display: "block",
+                    mb: 0.75,
+                  }}
+                >
+                  Status
+                </Typography>
+                <DeviceStatusBadge status={device.status} size="small" />
+              </Box>
+            )}
+          </SectionCard>
+        </Grid>
+
+        {/* Specifications */}
+        <Grid size={{ xs: 12, md: 6 }}>
+          <SectionCard
+            icon={<MemoryOutlinedIcon />}
+            title="Specifications"
+          >
+            {"processor" in device && (
+              <>
+                <DeviceInfoItem
+                  label="Processor"
+                  icon={<SpeedOutlinedIcon fontSize="small" />}
+                  value={device.processor}
+                />
+                <Divider sx={{ borderColor: "rgba(148,163,184,0.12)" }} />
+              </>
+            )}
+            {"ram" in device && (
+              <>
+                <DeviceInfoItem
+                  label="RAM"
+                  icon={<MemoryOutlinedIcon fontSize="small" />}
+                  value={device.ram}
+                />
+                <Divider sx={{ borderColor: "rgba(148,163,184,0.12)" }} />
+              </>
+            )}
+            {"storage" in device && (
+              <>
+                <DeviceInfoItem
+                  label="Storage"
+                  icon={<StorageOutlinedIcon fontSize="small" />}
+                  value={device.storage}
+                />
+                <Divider sx={{ borderColor: "rgba(148,163,184,0.12)" }} />
+              </>
+            )}
+            {os && (
+              <DeviceInfoItem
+                label="Operating System"
+                icon={<LaptopChromebookOutlinedIcon fontSize="small" />}
+                value={os}
+              />
+            )}
+          </SectionCard>
+        </Grid>
+
+        {/* Purchase Information — conditionally rendered based on present permitted fields */}
+        {(hasPurchaseDate || hasPurchaseAmount) && (
+          <Grid size={{ xs: 12, md: 6 }}>
+            <SectionCard
+              icon={<CurrencyRupeeOutlinedIcon />}
+              title="Purchase Information"
+            >
+              {hasPurchaseDate && (
+                <DeviceInfoItem
+                  label="Purchase Date"
+                  icon={<CalendarTodayOutlinedIcon fontSize="small" />}
+                  value={
+                    device.purchaseDate ? formatDate(device.purchaseDate) : "N/A"
+                  }
+                />
+              )}
+              {hasPurchaseDate && hasPurchaseAmount && (
+                <Divider sx={{ borderColor: "rgba(148,163,184,0.12)" }} />
+              )}
+              {hasPurchaseAmount && (
+                <DeviceInfoItem
+                  label="Purchase Amount"
+                  icon={<CurrencyRupeeOutlinedIcon fontSize="small" />}
+                  value={
+                    device.purchaseAmount
+                      ? formatCurrency(device.purchaseAmount)
+                      : "N/A"
+                  }
+                />
+              )}
+            </SectionCard>
+          </Grid>
+        )}
+
+        {/* Location — conditionally rendered based on present permitted fields */}
+        {hasLocation && (
+          <Grid size={{ xs: 12, md: 6 }}>
+            <SectionCard
+              icon={<LocationOnOutlinedIcon />}
+              title="Location"
+            >
+              <DeviceInfoItem
+                label="Office / Site"
+                icon={<LocationOnOutlinedIcon fontSize="small" />}
+                value={device.location}
+              />
+              {"serialNumber" in device && device.serialNumber && (
+                <>
+                  <Divider sx={{ borderColor: "rgba(148,163,184,0.12)" }} />
+                  <DeviceInfoItem
+                    label="Serial Number"
+                    icon={<ComputerOutlinedIcon fontSize="small" />}
+                    value={device.serialNumber}
+                  />
+                </>
+              )}
+            </SectionCard>
+          </Grid>
+        )}
+      </Grid>
+    </Box>
   );
 }

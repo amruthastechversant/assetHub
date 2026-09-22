@@ -1,45 +1,106 @@
 "use client";
 import React from "react";
 import Chip from "@mui/material/Chip";
-import CheckCircleIcon from "@mui/icons-material/CheckCircle";
-import InfoIcon from "@mui/icons-material/Info";
-import WarningAmberIcon from "@mui/icons-material/WarningAmber";
-import RemoveCircleIcon from "@mui/icons-material/RemoveCircle";
+import CheckCircleOutlinedIcon from "@mui/icons-material/CheckCircleOutlined";
+import PauseCircleOutlinedIcon from "@mui/icons-material/PauseCircleOutlined";
+import BuildOutlinedIcon from "@mui/icons-material/BuildOutlined";
+import RemoveCircleOutlinedIcon from "@mui/icons-material/RemoveCircleOutlined";
+import LockOutlinedIcon from "@mui/icons-material/LockOutlined";
 
-type Status = "Assigned" | "Available" | "Under Maintenance" | "Retired" | string;
+export type DeviceStatus =
+  | "active"
+  | "inactive"
+  | "retired"
+  | "restricted"
+  | "Active"
+  | "Inactive"
+  | "Under Maintenance"
+  | "Retired"
+  | "Assigned"
+  | "Available"
+  | string;
 
 interface Props {
-  status: Status;
+  status: DeviceStatus;
+  size?: "small" | "medium";
 }
 
-export default function DeviceStatusBadge({ status }: Props) {
-  const normalized = String(status || "");
+interface StatusConfig {
+  label: string;
+  color: "default" | "primary" | "success" | "warning" | "error" | "info";
+  icon: React.ReactElement;
+}
 
-  let color: "default" | "primary" | "success" | "warning" | "info" = "default";
-  let icon = undefined;
+function getStatusConfig(status: string): StatusConfig {
+  const s = status.toLowerCase().trim();
 
-  if (/assigned/i.test(normalized)) {
-    color = "success";
-    icon = <CheckCircleIcon fontSize="small" />;
-  } else if (/available/i.test(normalized)) {
-    color = "info";
-    icon = <InfoIcon fontSize="small" />;
-  } else if (/maintenance/i.test(normalized)) {
-    color = "warning";
-    icon = <WarningAmberIcon fontSize="small" />;
-  } else if (/retired/i.test(normalized)) {
-    color = "default";
-    icon = <RemoveCircleIcon fontSize="small" />;
+  if (s === "active" || s === "assigned") {
+    return {
+      label: s === "assigned" ? "Assigned" : "Active",
+      color: "success",
+      icon: <CheckCircleOutlinedIcon fontSize="small" />,
+    };
   }
+  if (s === "available") {
+    return {
+      label: "Available",
+      color: "info",
+      icon: <CheckCircleOutlinedIcon fontSize="small" />,
+    };
+  }
+  if (s === "inactive") {
+    return {
+      label: "Inactive",
+      color: "default",
+      icon: <PauseCircleOutlinedIcon fontSize="small" />,
+    };
+  }
+  if (s.includes("maintenance")) {
+    return {
+      label: "Under Maintenance",
+      color: "warning",
+      icon: <BuildOutlinedIcon fontSize="small" />,
+    };
+  }
+  if (s === "retired") {
+    return {
+      label: "Retired",
+      color: "error",
+      icon: <RemoveCircleOutlinedIcon fontSize="small" />,
+    };
+  }
+  if (s === "restricted") {
+    return {
+      label: "Restricted",
+      color: "warning",
+      icon: <LockOutlinedIcon fontSize="small" />,
+    };
+  }
+
+  // Fallback: display as-is
+  return {
+    label: status,
+    color: "default",
+    icon: <PauseCircleOutlinedIcon fontSize="small" />,
+  };
+}
+
+export default function DeviceStatusBadge({ status, size = "small" }: Props) {
+  const { label, color, icon } = getStatusConfig(status);
 
   return (
     <Chip
-      size="small"
+      size={size}
       icon={icon}
-      label={normalized}
+      label={label}
       color={color}
-      aria-label={`Status: ${normalized}`}
-      sx={{ fontWeight: 500 }}
+      aria-label={`Status: ${label}`}
+      sx={{
+        fontWeight: 600,
+        letterSpacing: "0.01em",
+        "& .MuiChip-icon": { fontSize: "1rem" },
+      }}
     />
   );
 }
+
