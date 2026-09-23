@@ -121,6 +121,29 @@ export default function DeviceLayout({
             </Box>
 
             <Button
+              variant="contained"
+              size="small"
+              href="/scan"
+              sx={{
+                minWidth: 0,
+                px: { xs: 1.5, md: 2 },
+                py: 0.8,
+                borderRadius: 2,
+                bgcolor: "#4f46e5",
+                color: "#ffffff",
+                textTransform: "none",
+                fontWeight: 700,
+                letterSpacing: "-0.01em",
+                boxShadow: "0 2px 8px rgba(79, 70, 229, 0.25)",
+                "&:hover": {
+                  bgcolor: "#4338ca",
+                },
+              }}
+            >
+              ◈ Scan QR
+            </Button>
+
+            <Button
               variant="outlined"
               size="small"
               onClick={() => setOpenLogoutDialog(true)}

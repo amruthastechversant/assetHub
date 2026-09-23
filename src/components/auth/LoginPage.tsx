@@ -120,6 +120,44 @@ export function LoginPage() {
           >
             {isLoading ? "Redirecting..." : "Sign in with Google"}
           </Button>
+
+          <Box
+            sx={{
+              width: "100%",
+              display: "flex",
+              alignItems: "center",
+              gap: 1.5,
+              my: 1,
+            }}
+          >
+            <Box sx={{ flex: 1, height: 1, bgcolor: "divider" }} />
+            <Typography variant="caption" sx={{ color: "text.secondary", fontWeight: 700 }}>
+              OR
+            </Typography>
+            <Box sx={{ flex: 1, height: 1, bgcolor: "divider" }} />
+          </Box>
+
+          <Button
+            fullWidth
+            variant="outlined"
+            href="/scan"
+            sx={{
+              borderRadius: 1.5,
+              height: 48,
+              textTransform: "none",
+              fontWeight: 700,
+              fontSize: "0.88rem",
+              borderColor: "#4f46e5",
+              color: "#4f46e5",
+              bgcolor: "rgba(99, 102, 241, 0.05)",
+              "&:hover": {
+                borderColor: "#4338ca",
+                bgcolor: "rgba(99, 102, 241, 0.1)",
+              },
+            }}
+          >
+            ◈ Scan Asset / Authenticator QR
+          </Button>
         </Box>
       </Paper>
 
