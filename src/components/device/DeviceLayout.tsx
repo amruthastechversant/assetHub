@@ -26,7 +26,7 @@ interface Props {
 
 export default function DeviceLayout({
   children,
-  title = "AssetHub",
+  title = "Instant",
   maxWidth = "md",
 }: Props) {
   const router = useRouter();
@@ -123,7 +123,7 @@ export default function DeviceLayout({
             <Button
               variant="contained"
               size="small"
-              href="/scan"
+              href="/"
               sx={{
                 minWidth: 0,
                 px: { xs: 1.5, md: 2 },
@@ -180,7 +180,7 @@ export default function DeviceLayout({
         <DialogTitle id="logout-dialog-title">Confirm logout</DialogTitle>
         <DialogContent>
           <DialogContentText id="logout-dialog-description">
-            Are you sure you want to sign out of AssetHub?
+            Are you sure you want to sign out of Instant?
           </DialogContentText>
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 2 }}>

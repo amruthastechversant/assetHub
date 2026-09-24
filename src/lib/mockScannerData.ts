@@ -1,5 +1,5 @@
 // ============================================================================
-// MOCK DATA & API WIREABLE SERVICES FOR ASSETHUB LENS
+// MOCK DATA & API WIREABLE SERVICES FOR INSTANT
 // ============================================================================
 // Contains mock devices strictly matching the 11 permission fields:
 // "assetCode", "assetType", "model", "storage", "operatingSystem",
@@ -32,6 +32,25 @@ export interface AuthenticatorTokenData {
   period?: number;
   rawPayload: string;
 }
+
+export interface OrgUser {
+  id: string;
+  name: string;
+  email: string;
+  role: string;
+  department: string;
+}
+
+export const ORG_USERS_LIST: OrgUser[] = [
+  { id: "u1", name: "Ashiq S", email: "ashiq@company.com", role: "Admin", department: "IT Operations" },
+  { id: "u2", name: "Amrutha Nair", email: "amrutha@company.com", role: "Lead Engineer", department: "Engineering" },
+  { id: "u3", name: "Rahul Krishna", email: "rahul.k@company.com", role: "DevOps", department: "Infrastructure" },
+  { id: "u4", name: "Sneha Menon", email: "sneha.m@company.com", role: "Product Manager", department: "Product" },
+  { id: "u5", name: "Karthik R", email: "karthik.r@company.com", role: "SecOps", department: "Information Security" },
+  { id: "u6", name: "Ananya Pillai", email: "ananya.p@company.com", role: "QA Engineer", department: "Quality Assurance" },
+  { id: "u7", name: "Vipin Das", email: "vipin.d@company.com", role: "IT Specialist", department: "IT Support" },
+  { id: "u8", name: "Deepa Thomas", email: "deepa.t@company.com", role: "HR Operations", department: "People Operations" },
+];
 
 // ----------------------------------------------------------------------------
 // 1. MOCK ASSET DATABASE (11 EXACT SPEC FIELDS)
