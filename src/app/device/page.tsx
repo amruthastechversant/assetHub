@@ -1,28 +1,34 @@
-import { getDeviceById } from "@/lib/device";
+import { getDeviceByAssetCode } from "@/lib/device";
+import { filterDeviceFields, normalizeRole } from "@/lib/permissions";
 import { auth } from "@/auth";
 import { redirect } from "next/navigation";
 import DeviceHeader from "@/components/device/DeviceHeader";
 import DeviceDetails from "@/components/device/DeviceDetails";
 import DeviceLayout from "@/components/device/DeviceLayout";
+import RoleBadgeBar from "@/components/device/RoleBadgeBar";
 
-export default async function DeviceIndexPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
-}) {
+type Props = {
+  searchParams: Promise<{ code?: string; role?: string }>;
+};
+
+export default async function DeviceIndexPage({ searchParams }: Props) {
   const session = await auth();
 
   if (!session) {
     redirect("/");
   }
 
-  const { id } = await searchParams;
-  const deviceId = typeof id === "string" ? id : null;
+  const search = await searchParams;
+  const userRole = (session?.user as any)?.role;
+  const activeRole = normalizeRole(search?.role || userRole || "Employee");
+  const assetCode = search?.code || "062687ef-ca34-4afc-bd5b-141f97052212";
 
-  // const device = deviceId ? await getDeviceById("062687ef-ca34-4afc-bd5b-141f97052212") : null;
-const device = deviceId ? await getDeviceById(deviceId) : null;
+  const rawDevice = await getDeviceByAssetCode(assetCode);
+  const device = rawDevice ? filterDeviceFields(rawDevice, activeRole) : null;
+
   return (
     <DeviceLayout title="Device Details" maxWidth="md">
+      <RoleBadgeBar currentRole={activeRole} />
       {!device ? (
         <div
           style={{
@@ -36,7 +42,7 @@ const device = deviceId ? await getDeviceById(deviceId) : null;
         </div>
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
-          <DeviceHeader device={device} />
+          <DeviceHeader device={device} role={activeRole} />
           <DeviceDetails device={device} />
         </div>
       )}

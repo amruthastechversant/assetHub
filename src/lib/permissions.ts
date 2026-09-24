@@ -4,62 +4,6 @@ import type { DeviceField, PermissionKey, RolePermissions } from "../types/permi
  * Centralized Role Permissions Configuration
  */
 export const rolePermissions: Record<string, RolePermissions> = {
-  Admin: {
-    viewAllFields: true,
-    viewPurchaseAmount: true,
-    viewLocation: true,
-    reportIssue: true,
-    allowedFields: [
-      "assetCode",
-      "assetType",
-      "model",
-      "storage",
-      "operatingSystem",
-      "ram",
-      "processor",
-      "purchaseDate",
-      "status",
-      "purchaseAmount",
-      "location",
-    ],
-  },
-  "IT Admin": {
-    viewAllFields: true,
-    viewPurchaseAmount: true,
-    viewLocation: true,
-    reportIssue: true,
-    allowedFields: [
-      "assetCode",
-      "assetType",
-      "model",
-      "storage",
-      "operatingSystem",
-      "ram",
-      "processor",
-      "purchaseDate",
-      "status",
-      "purchaseAmount",
-      "location",
-    ],
-  },
-  Manager: {
-    viewAllFields: false,
-    viewPurchaseAmount: false,
-    viewLocation: true,
-    reportIssue: true,
-    allowedFields: [
-      "assetCode",
-      "assetType",
-      "model",
-      "storage",
-      "operatingSystem",
-      "ram",
-      "processor",
-      "purchaseDate",
-      "status",
-      "location",
-    ],
-  },
   Employee: {
     viewAllFields: false,
     viewPurchaseAmount: false,
@@ -77,6 +21,80 @@ export const rolePermissions: Record<string, RolePermissions> = {
       "status",
     ],
   },
+  "Reporting Manager": {
+    viewAllFields: false,
+    viewPurchaseAmount: false,
+    viewLocation: true,
+    reportIssue: true,
+    allowedFields: [
+      "assetCode",
+      "assetType",
+      "model",
+      "storage",
+      "operatingSystem",
+      "ram",
+      "processor",
+      "purchaseDate",
+      "status",
+      "location",
+    ],
+  },
+  HR: {
+    viewAllFields: false,
+    viewPurchaseAmount: false,
+    viewLocation: true,
+    reportIssue: true,
+    allowedFields: [
+      "assetCode",
+      "assetType",
+      "model",
+      "storage",
+      "operatingSystem",
+      "ram",
+      "processor",
+      "purchaseDate",
+      "status",
+      "location",
+    ],
+  },
+  "System Admin": {
+    viewAllFields: true,
+    viewPurchaseAmount: true,
+    viewLocation: true,
+    reportIssue: true,
+    allowedFields: [
+      "assetCode",
+      "assetType",
+      "model",
+      "storage",
+      "operatingSystem",
+      "ram",
+      "processor",
+      "purchaseDate",
+      "status",
+      "purchaseAmount",
+      "location",
+    ],
+  },
+  CXO: {
+    viewAllFields: true,
+    viewPurchaseAmount: true,
+    viewLocation: true,
+    reportIssue: true,
+    allowedFields: [
+      "assetCode",
+      "assetType",
+      "model",
+      "storage",
+      "operatingSystem",
+      "ram",
+      "processor",
+      "purchaseDate",
+      "status",
+      "purchaseAmount",
+      "location",
+    ],
+  },
 };
 
 /**
@@ -86,11 +104,34 @@ export const rolePermissions: Record<string, RolePermissions> = {
 export function normalizeRole(role?: string | null): string {
   if (!role) return "Employee";
   const r = role.trim().toLowerCase();
-  
-  if (r === "admin" || r === "administrator" || r === "super admin") return "Admin";
-  if (r === "it admin" || r === "it_admin" || r === "it administrator") return "IT Admin";
-  if (r === "manager" || r === "mgr") return "Manager";
+
   if (r === "employee" || r === "user" || r === "staff") return "Employee";
+  if (
+    r === "reporting manager" ||
+    r === "reporting_manager" ||
+    r === "manager" ||
+    r === "mgr"
+  )
+    return "Reporting Manager";
+  if (r === "hr" || r === "human resources") return "HR";
+  if (
+    r === "system admin" ||
+    r === "system_admin" ||
+    r === "sysadmin" ||
+    r === "admin" ||
+    r === "it admin" ||
+    r === "it_admin" ||
+    r === "administrator"
+  )
+    return "System Admin";
+  if (
+    r === "cxo" ||
+    r === "executive" ||
+    r === "ceo" ||
+    r === "cto" ||
+    r === "cfo"
+  )
+    return "CXO";
 
   // Check direct key match (case-insensitive)
   const exactKey = Object.keys(rolePermissions).find(
@@ -142,9 +183,6 @@ export function filterDeviceFields<T extends Record<string, any>>(
 
   const permissions = getRolePermissions(role);
   const allowedSet = new Set<string>(permissions.allowedFields);
-
-  // Always keep basic system identification properties
-  const baseKeysToKeep = new Set(["id", "name", "serialNumber", "assignedUser", "assignedUserEmail"]);
 
   const filtered = { ...device };
 

@@ -191,11 +191,12 @@ export default function DeviceHeader({ device, role }: Props) {
           </Box>
 
           {/* Action Button: Report Issue */}
-          {canReportIssue && device.assetCode && (
+          {canReportIssue && device.assetCode && device.id && (
             <Box sx={{ flexShrink: 0, mt: { xs: 1, md: 0 } }}>
               <ReportIssueButton
                 assetCode={device.assetCode}
                 model={device.model || "Device"}
+                assetId={device.id}
               />
             </Box>
           )}

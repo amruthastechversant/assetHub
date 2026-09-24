@@ -109,6 +109,7 @@ export default function DeviceDetails({ device }: Props) {
   const hasPurchaseAmount = "purchaseAmount" in device && device.purchaseAmount !== undefined;
   const hasLocation = "location" in device && device.location !== undefined;
   const hasPurchaseDate = "purchaseDate" in device && device.purchaseDate !== undefined;
+  const hasStatus = "status" in device && device.status !== undefined;
 
   return (
     <Box>
@@ -231,7 +232,7 @@ export default function DeviceDetails({ device }: Props) {
                   label="Purchase Amount"
                   icon={<CurrencyRupeeOutlinedIcon fontSize="small" />}
                   value={
-                    device.purchaseAmount
+                    typeof device.purchaseAmount === "number"
                       ? formatCurrency(device.purchaseAmount)
                       : "N/A"
                   }

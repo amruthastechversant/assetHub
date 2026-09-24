@@ -7,7 +7,8 @@ import ShieldOutlinedIcon from "@mui/icons-material/ShieldOutlined";
 import AdminPanelSettingsOutlinedIcon from "@mui/icons-material/AdminPanelSettingsOutlined";
 import SupervisorAccountOutlinedIcon from "@mui/icons-material/SupervisorAccountOutlined";
 import PersonOutlinedIcon from "@mui/icons-material/PersonOutlined";
-import ManageAccountsOutlinedIcon from "@mui/icons-material/ManageAccountsOutlined";
+import BadgeOutlinedIcon from "@mui/icons-material/BadgeOutlined";
+import BusinessCenterOutlinedIcon from "@mui/icons-material/BusinessCenterOutlined";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
 interface RoleBadgeBarProps {
@@ -15,13 +16,14 @@ interface RoleBadgeBarProps {
 }
 
 const ROLES = [
-  { name: "Admin", label: "Admin", icon: <AdminPanelSettingsOutlinedIcon fontSize="small" /> },
-  { name: "IT Admin", label: "IT Admin", icon: <ManageAccountsOutlinedIcon fontSize="small" /> },
-  { name: "Manager", label: "Manager", icon: <SupervisorAccountOutlinedIcon fontSize="small" /> },
   { name: "Employee", label: "Employee", icon: <PersonOutlinedIcon fontSize="small" /> },
+  { name: "Reporting Manager", label: "Reporting Manager", icon: <SupervisorAccountOutlinedIcon fontSize="small" /> },
+  { name: "HR", label: "HR", icon: <BadgeOutlinedIcon fontSize="small" /> },
+  { name: "System Admin", label: "System Admin", icon: <AdminPanelSettingsOutlinedIcon fontSize="small" /> },
+  { name: "CXO", label: "CXO", icon: <BusinessCenterOutlinedIcon fontSize="small" /> },
 ];
 
-export default function RoleBadgeBar({ currentRole }: RoleBadgeBarProps) {
+function RoleBadgeBarContent({ currentRole }: RoleBadgeBarProps) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -78,20 +80,28 @@ export default function RoleBadgeBar({ currentRole }: RoleBadgeBarProps) {
                 transition: "all 0.2s ease",
                 ...(isActive
                   ? {
-                      bgcolor: "#2563eb",
-                      color: "#ffffff",
-                      "& .MuiChip-icon": { color: "#ffffff" },
-                    }
+                    bgcolor: "#2563eb",
+                    color: "#ffffff",
+                    "& .MuiChip-icon": { color: "#ffffff" },
+                  }
                   : {
-                      borderColor: "rgba(148, 163, 184, 0.3)",
-                      color: "#475569",
-                      "&:hover": { bgcolor: "#f8fafc" },
-                    }),
+                    borderColor: "rgba(148, 163, 184, 0.3)",
+                    color: "#475569",
+                    "&:hover": { bgcolor: "#f8fafc" },
+                  }),
               }}
             />
           );
         })}
       </Box>
     </Box>
+  );
+}
+
+export default function RoleBadgeBar(props: RoleBadgeBarProps) {
+  return (
+    <React.Suspense fallback={null}>
+      <RoleBadgeBarContent {...props} />
+    </React.Suspense>
   );
 }

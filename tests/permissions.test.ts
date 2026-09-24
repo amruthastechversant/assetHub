@@ -33,36 +33,45 @@ const mockFullDevice: DeviceDetail = {
 describe("Role-Based Access Control and Field Visibility Tests", () => {
   describe("1. Role Normalization and Config Lookup", () => {
     test("Normalizes role names correctly", () => {
-      assert.equal(normalizeRole("Admin"), "Admin");
-      assert.equal(normalizeRole("admin"), "Admin");
-      assert.equal(normalizeRole("IT Admin"), "IT Admin");
-      assert.equal(normalizeRole("it_admin"), "IT Admin");
-      assert.equal(normalizeRole("Manager"), "Manager");
-      assert.equal(normalizeRole("manager"), "Manager");
       assert.equal(normalizeRole("Employee"), "Employee");
       assert.equal(normalizeRole("employee"), "Employee");
-      assert.equal(normalizeRole("user"), "Employee");
+      assert.equal(normalizeRole("Reporting Manager"), "Reporting Manager");
+      assert.equal(normalizeRole("reporting manager"), "Reporting Manager");
+      assert.equal(normalizeRole("manager"), "Reporting Manager");
+      assert.equal(normalizeRole("HR"), "HR");
+      assert.equal(normalizeRole("hr"), "HR");
+      assert.equal(normalizeRole("System Admin"), "System Admin");
+      assert.equal(normalizeRole("system admin"), "System Admin");
+      assert.equal(normalizeRole("admin"), "System Admin");
+      assert.equal(normalizeRole("CXO"), "CXO");
+      assert.equal(normalizeRole("cxo"), "CXO");
       assert.equal(normalizeRole("UnknownRole"), "Employee");
     });
 
     test("Returns correct permissions structure for each role", () => {
-      const adminPerms = getRolePermissions("Admin");
-      assert.equal(adminPerms.viewAllFields, true);
-      assert.equal(adminPerms.viewPurchaseAmount, true);
-      assert.equal(adminPerms.viewLocation, true);
-      assert.equal(adminPerms.reportIssue, true);
+      const sysAdminPerms = getRolePermissions("System Admin");
+      assert.equal(sysAdminPerms.viewAllFields, true);
+      assert.equal(sysAdminPerms.viewPurchaseAmount, true);
+      assert.equal(sysAdminPerms.viewLocation, true);
+      assert.equal(sysAdminPerms.reportIssue, true);
 
-      const itAdminPerms = getRolePermissions("IT Admin");
-      assert.equal(itAdminPerms.viewAllFields, true);
-      assert.equal(itAdminPerms.viewPurchaseAmount, true);
-      assert.equal(itAdminPerms.viewLocation, true);
-      assert.equal(itAdminPerms.reportIssue, true);
+      const cxoPerms = getRolePermissions("CXO");
+      assert.equal(cxoPerms.viewAllFields, true);
+      assert.equal(cxoPerms.viewPurchaseAmount, true);
+      assert.equal(cxoPerms.viewLocation, true);
+      assert.equal(cxoPerms.reportIssue, true);
 
-      const managerPerms = getRolePermissions("Manager");
-      assert.equal(managerPerms.viewAllFields, false);
-      assert.equal(managerPerms.viewPurchaseAmount, false);
-      assert.equal(managerPerms.viewLocation, true);
-      assert.equal(managerPerms.reportIssue, true);
+      const hrPerms = getRolePermissions("HR");
+      assert.equal(hrPerms.viewAllFields, false);
+      assert.equal(hrPerms.viewPurchaseAmount, false);
+      assert.equal(hrPerms.viewLocation, true);
+      assert.equal(hrPerms.reportIssue, true);
+
+      const reportingManagerPerms = getRolePermissions("Reporting Manager");
+      assert.equal(reportingManagerPerms.viewAllFields, false);
+      assert.equal(reportingManagerPerms.viewPurchaseAmount, false);
+      assert.equal(reportingManagerPerms.viewLocation, true);
+      assert.equal(reportingManagerPerms.reportIssue, true);
 
       const employeePerms = getRolePermissions("Employee");
       assert.equal(employeePerms.viewAllFields, false);
@@ -72,9 +81,9 @@ describe("Role-Based Access Control and Field Visibility Tests", () => {
     });
   });
 
-  describe("2. Admin Field Visibility", () => {
-    test("Admin can view all permitted fields including purchaseAmount and location", () => {
-      const filtered = filterDeviceFields(mockFullDevice, "Admin");
+  describe("2. System Admin Field Visibility", () => {
+    test("System Admin can view all permitted fields including purchaseAmount and location", () => {
+      const filtered = filterDeviceFields(mockFullDevice, "System Admin");
 
       assert.equal(filtered.assetCode, "DEV-10025");
       assert.equal(filtered.assetType, "Laptop");
@@ -90,9 +99,9 @@ describe("Role-Based Access Control and Field Visibility Tests", () => {
     });
   });
 
-  describe("3. IT Admin Field Visibility", () => {
-    test("IT Admin can view all permitted fields", () => {
-      const filtered = filterDeviceFields(mockFullDevice, "IT Admin");
+  describe("3. CXO Field Visibility", () => {
+    test("CXO can view all permitted fields including purchaseAmount and location", () => {
+      const filtered = filterDeviceFields(mockFullDevice, "CXO");
 
       assert.equal(filtered.purchaseAmount, 249999);
       assert.equal(filtered.location, "Bangalore HQ - Floor 4");
@@ -100,14 +109,24 @@ describe("Role-Based Access Control and Field Visibility Tests", () => {
     });
   });
 
-  describe("4. Manager Field Visibility Restrictions", () => {
-    test("Manager can view location but CANNOT view purchaseAmount", () => {
-      const filtered = filterDeviceFields(mockFullDevice, "Manager");
+  describe("4. Reporting Manager & HR Field Visibility Restrictions", () => {
+    test("Reporting Manager can view location but CANNOT view purchaseAmount", () => {
+      const filtered = filterDeviceFields(mockFullDevice, "Reporting Manager");
 
       assert.equal(filtered.location, "Bangalore HQ - Floor 4");
       assert.equal(filtered.purchaseDate, "2025-01-15");
       assert.equal(filtered.assetCode, "DEV-10025");
-      assert.equal("purchaseAmount" in filtered, false, "purchaseAmount must NOT exist in returned payload for Manager");
+      assert.equal("purchaseAmount" in filtered, false, "purchaseAmount must NOT exist in returned payload for Reporting Manager");
+      assert.equal(filtered.purchaseAmount, undefined);
+    });
+
+    test("HR can view location but CANNOT view purchaseAmount", () => {
+      const filtered = filterDeviceFields(mockFullDevice, "HR");
+
+      assert.equal(filtered.location, "Bangalore HQ - Floor 4");
+      assert.equal(filtered.purchaseDate, "2025-01-15");
+      assert.equal(filtered.assetCode, "DEV-10025");
+      assert.equal("purchaseAmount" in filtered, false, "purchaseAmount must NOT exist in returned payload for HR");
       assert.equal(filtered.purchaseAmount, undefined);
     });
   });
@@ -128,7 +147,7 @@ describe("Role-Based Access Control and Field Visibility Tests", () => {
 
   describe("6. Server-Side Data Stripping Verification", () => {
     test("Restricted fields are strictly deleted from payload before client delivery", () => {
-      const filteredManager = filterDeviceFields(mockFullDevice, "Manager");
+      const filteredManager = filterDeviceFields(mockFullDevice, "Reporting Manager");
       const filteredEmployee = filterDeviceFields(mockFullDevice, "Employee");
 
       const managerKeys = Object.keys(filteredManager);
@@ -142,21 +161,24 @@ describe("Role-Based Access Control and Field Visibility Tests", () => {
 
   describe("7. Report Issue Action Permissions", () => {
     test("Report Issue action permission follows configuration across all roles", () => {
-      assert.equal(hasPermission("Admin", "reportIssue"), true);
-      assert.equal(hasPermission("IT Admin", "reportIssue"), true);
-      assert.equal(hasPermission("Manager", "reportIssue"), true);
+      assert.equal(hasPermission("System Admin", "reportIssue"), true);
+      assert.equal(hasPermission("CXO", "reportIssue"), true);
+      assert.equal(hasPermission("HR", "reportIssue"), true);
+      assert.equal(hasPermission("Reporting Manager", "reportIssue"), true);
       assert.equal(hasPermission("Employee", "reportIssue"), true);
     });
   });
 
   describe("8. Field Level Authorization Helpers", () => {
     test("canViewField helper works accurately", () => {
-      assert.equal(canViewField("Admin", "purchaseAmount"), true);
-      assert.equal(canViewField("IT Admin", "purchaseAmount"), true);
-      assert.equal(canViewField("Manager", "purchaseAmount"), false);
+      assert.equal(canViewField("System Admin", "purchaseAmount"), true);
+      assert.equal(canViewField("CXO", "purchaseAmount"), true);
+      assert.equal(canViewField("HR", "purchaseAmount"), false);
+      assert.equal(canViewField("Reporting Manager", "purchaseAmount"), false);
       assert.equal(canViewField("Employee", "purchaseAmount"), false);
 
-      assert.equal(canViewField("Manager", "location"), true);
+      assert.equal(canViewField("HR", "location"), true);
+      assert.equal(canViewField("Reporting Manager", "location"), true);
       assert.equal(canViewField("Employee", "location"), false);
     });
   });

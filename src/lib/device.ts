@@ -1,5 +1,5 @@
 import pool from "./db";
-import { filterDeviceFields } from "./permissions";
+import { filterDeviceFields, normalizeRole } from "./permissions";
 import { Device, DeviceDetail } from "@/types/device";
 
 export type { Device, DeviceDetail };
@@ -110,17 +110,16 @@ export async function listDevicesByRole(
   userEmail?: string,
   filters?: Partial<Pick<DeviceDetail, "status" | "assetType" | "location">>
 ): Promise<DeviceDetail[]> {
+  const normalizedRole = normalizeRole(role);
   let query = `SELECT ${SELECT_FIELDS} FROM inventory WHERE 1=1`;
   const values: any[] = [];
   let index = 1;
 
-  if (role === "user") {
+  if (normalizedRole === "Employee") {
     if (!userEmail) return [];
     query += ` AND assigned_user_email = $${index}`;
     values.push(userEmail);
     index++;
-  } else if (role !== "admin") {
-    // Return all devices by default or filter if needed
   }
 
   if (filters?.status) {
