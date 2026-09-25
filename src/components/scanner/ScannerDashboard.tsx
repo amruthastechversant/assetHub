@@ -1270,6 +1270,7 @@ export default function ScannerDashboard() {
         >
           <Box
             sx={{
+              position: "relative",
               width: "min(480px, 100%)",
               backgroundColor: isDark ? "#0e1424" : "#ffffff",
               borderRadius: "28px",
@@ -1284,6 +1285,29 @@ export default function ScannerDashboard() {
               },
             }}
           >
+            {/* Top-Right Close Button (matching DeviceDetailsSheet) */}
+            <IconButton
+              size="small"
+              onClick={() => setEnrolled2FAModal(null)}
+              aria-label="Close"
+              sx={{
+                position: "absolute",
+                top: { xs: 14, sm: 18 },
+                right: { xs: 14, sm: 18 },
+                color: isDark ? "#94a3b8" : "#64748b",
+                backgroundColor: isDark ? "rgba(255, 255, 255, 0.05)" : "#f1f5f9",
+                width: 36,
+                height: 36,
+                borderRadius: "12px",
+                "&:hover": {
+                  backgroundColor: isDark ? "rgba(255, 255, 255, 0.1)" : "#e2e8f0",
+                  color: isDark ? "#ffffff" : "#08131e",
+                },
+              }}
+            >
+              <CloseIcon sx={{ fontSize: 20 }} />
+            </IconButton>
+
             {/* Success Icon */}
             <Box
               sx={{
@@ -1334,44 +1358,32 @@ export default function ScannerDashboard() {
               />
             </Box>
 
-            {/* Modal Actions */}
-            <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr" }, gap: 1.5 }}>
+            {/* Modal Actions (matching DeviceDetailsSheet footer button style) */}
+            <Box sx={{ display: "flex", justifyContent: { xs: "stretch", sm: "flex-end" } }}>
               <Button
                 variant="outlined"
                 onClick={() => setEnrolled2FAModal(null)}
+                startIcon={<CloseIcon sx={{ fontSize: 18 }} />}
                 sx={{
+                  width: { xs: "100%", sm: "auto" },
+                  minWidth: { sm: 120 },
+                  borderColor: isDark ? "rgba(255, 255, 255, 0.16)" : "#cbd5e1",
+                  color: isDark ? "#94a3b8" : "#64748b",
+                  fontWeight: 650,
+                  fontSize: "0.9rem",
+                  py: { xs: 1.25, sm: 1.15 },
+                  px: { sm: 3.5 },
                   borderRadius: "14px",
-                  borderColor: isDark ? "rgba(255,255,255,0.15)" : "#cbd5e1",
-                  color: isDark ? "#f1f5f9" : "#0f172a",
                   textTransform: "none",
-                  fontWeight: 700,
-                  py: 1.2,
-                  fontSize: "0.88rem",
-                  "&:hover": { borderColor: "#6366f1" },
+                  backgroundColor: isDark ? "rgba(255, 255, 255, 0.03)" : "#f8fafc",
+                  "&:hover": {
+                    borderColor: isDark ? "rgba(255, 255, 255, 0.3)" : "#94a3b8",
+                    backgroundColor: isDark ? "rgba(255, 255, 255, 0.08)" : "#e2e8f0",
+                    color: isDark ? "#ffffff" : "#0f172a",
+                  },
                 }}
               >
-                Keep Scanning
-              </Button>
-              <Button
-                variant="contained"
-                onClick={() => {
-                  setEnrolled2FAModal(null);
-                  setActiveTab("authenticators");
-                }}
-                endIcon={<ArrowForwardIcon />}
-                sx={{
-                  borderRadius: "14px",
-                  backgroundColor: "#6366f1",
-                  color: "#ffffff",
-                  textTransform: "none",
-                  fontWeight: 750,
-                  py: 1.2,
-                  fontSize: "0.88rem",
-                  boxShadow: "0 6px 20px rgba(99,102,241,0.35)",
-                  "&:hover": { backgroundColor: "#818cf8" },
-                }}
-              >
-                Show Authenticator
+                Close
               </Button>
             </Box>
           </Box>

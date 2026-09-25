@@ -240,28 +240,32 @@ export default function DeviceDetailsSheet({
 
     {/* Top Actions */}
     <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-      {/* REPORT AN ISSUE ICON BUTTON */}
+      {/* REPORT AN ISSUE BUTTON */}
       {canReportIssue && (
-        <Tooltip title="Report an issue for this device">
-          <IconButton
-            size="small"
-            onClick={handleOpenIssueModal}
-            sx={{
+        <Button
+          size="small"
+          onClick={handleOpenIssueModal}
+          startIcon={<ReportProblemOutlinedIcon sx={{ fontSize: 18 }} />}
+          sx={{
+            color: "#ef4444",
+            backgroundColor: "rgba(239, 68, 68, 0.1)",
+            border: "1px solid rgba(239, 68, 68, 0.25)",
+            borderRadius: "12px",
+            px: { xs: 1.5, sm: 2 },
+            py: 0.7,
+            textTransform: "none",
+            fontWeight: 700,
+            fontSize: { xs: "0.8rem", sm: "0.85rem" },
+            whiteSpace: "nowrap",
+            "&:hover": {
+              backgroundColor: "rgba(239, 68, 68, 0.2)",
+              borderColor: "rgba(239, 68, 68, 0.4)",
               color: "#ef4444",
-              backgroundColor: "rgba(239, 68, 68, 0.12)",
-              border: "1px solid rgba(239, 68, 68, 0.25)",
-              width: 36,
-              height: 36,
-              borderRadius: "12px",
-              "&:hover": {
-                backgroundColor: "rgba(239, 68, 68, 0.22)",
-                color: "#ef4444",
-              },
-            }}
-          >
-            <ReportProblemOutlinedIcon sx={{ fontSize: 19 }} />
-          </IconButton>
-        </Tooltip>
+            },
+          }}
+        >
+          Report an issue
+        </Button>
       )}
 
       <IconButton
