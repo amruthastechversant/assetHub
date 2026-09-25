@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { AppRouterCacheProvider } from "@mui/material-nextjs/v16-appRouter";
 import { AuthProvider } from "@/components/auth/AuthProvider";
@@ -15,8 +15,26 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "AssetHub",
+  applicationName: "AssetHub",
+
+  title: {
+    default: "AssetHub",
+    template: "%s | AssetHub",
+  },
+
   description: "AssetHub device asset management",
+
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "AssetHub",
+  },
+};
+
+export const viewport: Viewport = {
+  themeColor: "#ffffff",
+  width: "device-width",
+  initialScale: 1,
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
