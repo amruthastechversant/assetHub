@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>AssetHub Test QR Codes</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: #090d16;
+      color: #f1f5f9;
+      margin: 0;
+      padding: 30px 20px;
+    }
+    h1 {
+      text-align: center;
+      font-size: 1.8rem;
+      margin-bottom: 8px;
+      color: #38bdf8;
+    }
+    p.sub {
+      text-align: center;
+      color: #94a3b8;
+      margin-bottom: 30px;
+      font-size: 0.95rem;
+    }
+    .section-title {
+      font-size: 1.3rem;
+      border-bottom: 1px solid rgba(255,255,255,0.1);
+      padding-bottom: 8px;
+      margin: 30px auto 20px;
+      max-width: 1100px;
+      color: #818cf8;
+      font-weight: 700;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 20px;
+      max-width: 1100px;
+      margin: 0 auto 40px;
+    }
+    .card {
+      background: #111827;
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 16px;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.4);
+    }
+    .card img {
+      width: 200px;
+      height: 200px;
+      background: #fff;
+      padding: 10px;
+      border-radius: 12px;
+      margin-bottom: 15px;
+    }
+    .card h3 {
+      font-size: 1rem;
+      margin: 0 0 6px;
+      color: #f8fafc;
+    }
+    .card .badge {
+      font-size: 0.75rem;
+      font-family: monospace;
+      padding: 3px 8px;
+      border-radius: 6px;
+      background: rgba(56, 189, 248, 0.15);
+      color: #38bdf8;
+      margin-bottom: 8px;
+    }
+    .card p {
+      font-size: 0.8rem;
+      color: #94a3b8;
+      margin: 0;
+      word-break: break-all;
+    }
+  </style>
+</head>
+<body>
+  <h1>AssetHub Test QR Codes</h1>
+  <p class="sub">Scan directly using your webcam, phone camera, or upload test image to the scanner.</p>
+
+  <div class="section-title">📦 Inventory Device QR Codes (Real DB Items)</div>
+  <div class="grid">
+    <div class="card">
+      <img src="/qr-asset-macbook.png" alt="MacBook Pro">
+      <span class="badge">DEV-10025</span>
+      <h3>MacBook Pro M3 Max</h3>
+      <p>Laptop • Active in Database</p>
+    </div>
+    <div class="card">
+      <img src="/qr-asset-thinkpad.png" alt="ThinkPad X1">
+      <span class="badge">TV-LAP-02481</span>
+      <h3>ThinkPad X1 Carbon</h3>
+      <p>Laptop • Active in Database</p>
+    </div>
+    <div class="card">
+      <img src="/qr-asset-monitor.png" alt="LG Monitor">
+      <span class="badge">TV-MON-09124</span>
+      <h3>LG 34" UltraWide Curved</h3>
+      <p>Monitor • Active in Database</p>
+    </div>
+    <div class="card">
+      <img src="/qr-asset-keyboard.png" alt="Keychron Keyboard">
+      <span class="badge">DEV-20411</span>
+      <h3>Keychron Q1 Pro Keyboard</h3>
+      <p>Accessory • Active in Database</p>
+    </div>
+    <div class="card">
+      <img src="/qr-asset-ultrasharp.png" alt="Dell UltraSharp">
+      <span class="badge">TV-MT-0001</span>
+      <h3>Dell UltraSharp 27 4K</h3>
+      <p>Monitor • Active in Database</p>
+    </div>
+    <div class="card">
+      <img src="/qr-asset-json.png" alt="iPad Pro JSON">
+      <span class="badge">DEV-30512</span>
+      <h3>iPad Pro 12.9 (JSON Format)</h3>
+      <p>Tablet • { assetCode, type }</p>
+    </div>
+  </div>
+
+  <div class="section-title">🔐 Authenticator (TOTP / 2FA) QR Codes</div>
+  <div class="grid">
+    <div class="card">
+      <img src="/qr-auth-github.png" alt="GitHub 2FA">
+      <span class="badge">GitHub</span>
+      <h3>GitHub 2FA Token</h3>
+      <p>ashiq@company.com • 30s • 6 digits</p>
+    </div>
+    <div class="card">
+      <img src="/qr-auth-google.png" alt="Google Workspace">
+      <span class="badge">Google Workspace</span>
+      <h3>Google Workspace 2FA</h3>
+      <p>ashiq@company.com • 30s • 6 digits</p>
+    </div>
+    <div class="card">
+      <img src="/qr-auth-aws.png" alt="AWS Console">
+      <span class="badge">AWS Console</span>
+      <h3>Amazon Web Services (AWS)</h3>
+      <p>production-admin • 30s • 6 digits</p>
+    </div>
+    <div class="card">
+      <img src="/qr-auth-slack.png" alt="Slack">
+      <span class="badge">Slack Enterprise</span>
+      <h3>Slack 2FA Token</h3>
+      <p>ashiq@techversantinfo.com • 30s • 6 digits</p>
+    </div>
+    <div class="card">
+      <img src="/qr-auth-microsoft.png" alt="Microsoft">
+      <span class="badge">Microsoft 365</span>
+      <h3>Microsoft 365 Authenticator</h3>
+      <p>ashiq@company.com • 30s • 6 digits</p>
+    </div>
+  </div>
+</body>
+</html>

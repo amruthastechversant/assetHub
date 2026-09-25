@@ -187,22 +187,60 @@ export default function DeviceDetailsSheet({
     document.body.removeChild(link);
   };
 
-  const handleSubmitIssue = (e: React.FormEvent) => {
+  const handleSubmitIssue = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!issueDescription.trim()) return;
+
     setIsSubmitting(true);
 
-    // Simulated API dispatch
-    setTimeout(() => {
-      const ticketId = `TKT-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
-      setIsSubmitting(false);
+    try {
+      let res: Response;
+      if (attachments.length > 0) {
+        const formData = new FormData();
+        formData.append("assetId", device.id || device.assetCode);
+        formData.append("note", issueDescription.trim());
+        attachments.forEach((item) => {
+          formData.append("files", item.file);
+        });
+        res = await fetch("/api/report-issue", {
+          method: "POST",
+          body: formData,
+        });
+      } else {
+        res = await fetch("/api/report-issue", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            assetId: device.id || device.assetCode,
+            note: issueDescription.trim(),
+          }),
+        });
+      }
+
+      const data = await res.json();
+
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || data.errorDetails?.message || "Failed to submit ticket");
+      }
+
       setShowIssueModal(false);
       setIssueDescription("");
       attachments.forEach((a) => {
         if (a.url) URL.revokeObjectURL(a.url);
       });
       setAttachments([]);
-      onToast(`Issue logged! Ticket: ${ticketId}`);
-    }, 450);
+      const trackingCode = data.fileContent?.createdRequestId;
+      onToast(
+        trackingCode
+          ? `Maintenance request ${trackingCode} submitted! IT support will contact you shortly.`
+          : "Issue report successfully submitted! IT support will contact you shortly."
+      );
+    } catch (err: any) {
+      console.error("Failed to submit issue report:", err);
+      onToast(err.message || "Failed to submit ticket. Please try again.");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (

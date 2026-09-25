@@ -40,7 +40,6 @@ import {
   fetchDeviceByCode,
   DeviceDetailView,
   AuthenticatorTokenData,
-  MOCK_ASSETS,
 } from "@/lib/mockScannerData";
 import { generateTOTP, formatOtpCode, getRemainingSeconds } from "@/lib/totp";
 
@@ -207,59 +206,57 @@ export default function ScannerDashboard() {
     }
   }, []);
 
-  // Initialize recent devices and mock 2FA tokens
+  // Load real scan history and authenticators from localStorage
   useEffect(() => {
-    Promise.all([
-      fetchDeviceByCode("TV-LAP-02481"),
-      fetchDeviceByCode("TV-MON-09124"),
-      fetchDeviceByCode("DEV-10025"),
-      fetchDeviceByCode("TV-DOC-00341"),
-    ]).then((devices) => {
-      const valid = devices.filter(Boolean) as DeviceDetailView[];
-      if (valid.length > 0) {
-        setJustScannedItem({
-          device: valid[0],
-          scannedAt: Date.now() - 25 * 1000,
-        });
-        const recents: RecentScanItem[] = [];
-        if (valid[1]) recents.push({ device: valid[1], scannedAt: Date.now() - 4 * 60 * 1000 });
-        if (valid[2]) recents.push({ device: valid[2], scannedAt: Date.now() - 32 * 60 * 1000 });
-        if (valid[3]) recents.push({ device: valid[3], scannedAt: Date.now() - 58 * 60 * 1000 });
-        setRecentScans(recents);
-      }
-    });
-
-    // Default mock 2FA tokens
     try {
-      const stored = localStorage.getItem("instant_auth_tokens") || localStorage.getItem("assethub_auth_tokens");
-      if (stored) {
-        const parsed = JSON.parse(stored);
+      const storedScans = localStorage.getItem("assethub_recent_scans");
+      if (storedScans) {
+        const parsed = JSON.parse(storedScans);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          setAuthTokens(parsed);
-          return;
+          setJustScannedItem(parsed[0]);
+          setRecentScans(parsed.slice(1));
         }
       }
     } catch { }
 
-    setAuthTokens([
-      {
-        issuer: "Google Workspace",
-        account: "ashiq@company.com",
-        secret: "JBSWY3DPEHPK3PXP",
-        period: 30,
-        digits: 6,
-        rawPayload: "otpauth://totp/Google%20Workspace:ashiq@company.com?secret=JBSWY3DPEHPK3PXP&issuer=Google%20Workspace",
-      },
-      {
-        issuer: "GitHub",
-        account: "ashiq@company.com",
-        secret: "HXDMVJECJJWSRB3HW",
-        period: 30,
-        digits: 6,
-        rawPayload: "otpauth://totp/GitHub:ashiq@company.com?secret=HXDMVJECJJWSRB3HW&issuer=GitHub",
-      },
-    ]);
+    try {
+      const storedTokens = localStorage.getItem("instant_auth_tokens") || localStorage.getItem("assethub_auth_tokens");
+      if (storedTokens) {
+        const parsed = JSON.parse(storedTokens);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setAuthTokens(parsed);
+        }
+      }
+    } catch { }
   }, []);
+
+  // Sync TOTP tokens from database (totp_data)
+  const fetchVaultTokens = useCallback(async () => {
+    try {
+      const res = await fetch("/api/vault/totp");
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success && Array.isArray(data.tokens)) {
+          setAuthTokens((prev) => {
+            const dbTokens: AuthenticatorTokenData[] = data.tokens;
+            const dbSecrets = new Set(dbTokens.map((t) => t.secret));
+            const localOnly = prev.filter((t) => !dbSecrets.has(t.secret));
+            const merged = [...dbTokens, ...localOnly];
+            try {
+              localStorage.setItem("instant_auth_tokens", JSON.stringify(merged));
+            } catch { }
+            return merged;
+          });
+        }
+      }
+    } catch (err) {
+      console.warn("Could not sync tokens from vault API:", err);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchVaultTokens();
+  }, [fetchVaultTokens]);
 
   const selectTheme = (theme: "dark" | "light") => {
     setThemeMode(theme);
@@ -358,26 +355,42 @@ export default function ScannerDashboard() {
         return next;
       });
 
+      // Persist newly enrolled token to database
+      fetch("/api/vault/totp", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          accountName: token.issuer || token.account || "Authenticator",
+          qrData: token,
+        }),
+      })
+        .then((res) => res.json())
+        .then((data) => {
+          if (data.success && data.totpId) {
+            setAuthTokens((prev) => {
+              const updated = prev.map((t) =>
+                t.secret === token.secret ? { ...t, totpId: data.totpId, id: data.totpId } : t
+              );
+              try {
+                localStorage.setItem("instant_auth_tokens", JSON.stringify(updated));
+              } catch { }
+              return updated;
+            });
+          }
+        })
+        .catch((err) => console.warn("Failed to persist new TOTP to DB:", err));
+
       // Open 2FA Confirmation Modal
       setEnrolled2FAModal({ token, otp: currentOtp });
       showToast(`✓ Authenticator enrolled: ${token.issuer}`);
     } else {
-      const code = parsed.assetCode || rawPayload;
-      let device = await fetchDeviceByCode(code);
+      const code = (parsed.assetCode || rawPayload).trim();
+      const device = await fetchDeviceByCode(code);
+
+      // Validation: If device does not exist in the database, do not fabricate mock data
       if (!device) {
-        device = {
-          id: `scanned-${Date.now()}`,
-          assetCode: code,
-          assetType: "Hardware",
-          model: `Identified Asset (${code})`,
-          storage: "512 GB NVMe",
-          operatingSystem: "Enterprise OS",
-          ram: "16 GB Unified",
-          processor: "Core Chipset",
-          purchaseDate: new Date().toISOString().split("T")[0],
-          status: "active",
-          location: "Corporate Bay",
-        };
+        showToast(`Device "${code}" not found in inventory.`);
+        return;
       }
 
       const scanEntry: RecentScanItem = {
@@ -389,17 +402,21 @@ export default function ScannerDashboard() {
       // Exclude the newly scanned device from recent scans,
       // and move the previous justScannedItem into recent scans.
       setRecentScans((prev) => {
-        let updated = prev.filter((item) => item.device.assetCode !== device!.assetCode);
-        if (justScannedItem && justScannedItem.device.assetCode !== device!.assetCode) {
+        let updated = prev.filter((item) => item.device.assetCode !== device.assetCode);
+        if (justScannedItem && justScannedItem.device.assetCode !== device.assetCode) {
           updated = [justScannedItem, ...updated.filter((item) => item.device.assetCode !== justScannedItem.device.assetCode)];
         }
-        return updated.slice(0, 10);
+        const finalRecent = updated.slice(0, 10);
+        try {
+          localStorage.setItem("assethub_recent_scans", JSON.stringify([scanEntry, ...finalRecent]));
+        } catch { }
+        return finalRecent;
       });
 
       // Set Card 1 (Top right) to the newly scanned device
       setJustScannedItem(scanEntry);
 
-      // Automatically open the Asset Details Modal
+      // Automatically open the Asset Details Modal for valid devices
       setSelectedDeviceModal(device);
       showToast(`Asset identified: ${device.model}`);
     }
@@ -1169,24 +1186,70 @@ export default function ScannerDashboard() {
                     key={`${token.issuer}-${token.account}-${i}`}
                     tokenData={token}
                     themeMode={themeMode}
-                    onClose={() => {
+                    onClose={async () => {
                       const updated = authTokens.filter((_, idx) => idx !== i);
                       setAuthTokens(updated);
                       try {
                         localStorage.setItem("instant_auth_tokens", JSON.stringify(updated));
                       } catch { }
                       showToast(`Removed ${token.issuer}`);
+
+                      if (token.totpId || token.id) {
+                        try {
+                          await fetch(`/api/vault/totp?totpId=${token.totpId || token.id}`, {
+                            method: "DELETE",
+                          });
+                        } catch (err) {
+                          console.warn("Failed to delete token from DB:", err);
+                        }
+                      }
                     }}
-                    onUpdateToken={(updatedToken) => {
+                    onUpdateToken={async (updatedToken) => {
+                      // 1. Immediate optimistic UI update
                       setAuthTokens((prev) => {
                         const copy = prev.map((t) =>
-                          t.secret === token.secret && t.account === token.account ? updatedToken : t
+                          (t.totpId && t.totpId === updatedToken.totpId) || (t.secret === updatedToken.secret && t.account === updatedToken.account)
+                            ? updatedToken
+                            : t
                         );
                         try {
                           localStorage.setItem("instant_auth_tokens", JSON.stringify(copy));
                         } catch { }
                         return copy;
                       });
+
+                      // 2. Persist name change to PostgreSQL database
+                      try {
+                        const res = await fetch("/api/vault/totp", {
+                          method: "PATCH",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({
+                            totpId: updatedToken.totpId || updatedToken.id,
+                            accountName: updatedToken.issuer,
+                            qrData: updatedToken,
+                            secret: updatedToken.secret,
+                          }),
+                        });
+                        const data = await res.json();
+                        if (data.success) {
+                          showToast(`✓ Name updated to "${updatedToken.issuer}"`);
+                          if (data.totpId && !updatedToken.totpId) {
+                            setAuthTokens((prev) => {
+                              const synced = prev.map((t) =>
+                                t.secret === updatedToken.secret ? { ...t, totpId: data.totpId, id: data.totpId } : t
+                              );
+                              try {
+                                localStorage.setItem("instant_auth_tokens", JSON.stringify(synced));
+                              } catch { }
+                              return synced;
+                            });
+                          }
+                        } else {
+                          showToast(data.error || "Failed to update name in database");
+                        }
+                      } catch (err) {
+                        console.error("Failed to persist name change to DB:", err);
+                      }
                     }}
                     onScanAnother={() => setActiveTab("scanner")}
                     onToast={showToast}

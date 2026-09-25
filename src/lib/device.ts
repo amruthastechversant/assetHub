@@ -1,24 +1,34 @@
 import pool from "./db";
-import { filterDeviceFields } from "./permissions";
+import { filterDeviceFields, normalizeRole } from "./permissions";
 import { Device, DeviceDetail } from "@/types/device";
 
 export type { Device, DeviceDetail };
 
 const SELECT_FIELDS = `
-  asset_id AS id, 
-  model AS name, 
-  asset_type AS "assetType", 
-  asset_code AS "serialNumber", 
-  status, 
-  asset_code AS "assetCode", 
-  model, 
-  storage, 
-  os AS "operatingSystem", 
-  ram, 
-  processor, 
-  TO_CHAR(purchase_date, 'YYYY-MM-DD') AS "purchaseDate", 
-  purchase_amount AS "purchaseAmount", 
-  location
+  i.asset_id AS id, 
+  i.model AS name, 
+  COALESCE(att.asset_type, i.asset_type::TEXT, 'Device') AS "assetType", 
+  i.asset_code AS "serialNumber", 
+  i.status, 
+  i.asset_code AS "assetCode", 
+  i.model, 
+  i.storage, 
+  i.os AS "operatingSystem", 
+  i.ram, 
+  i.processor, 
+  TO_CHAR(i.purchase_date, 'YYYY-MM-DD') AS "purchaseDate", 
+  CAST(i.purchase_amount AS DOUBLE PRECISION) AS "purchaseAmount", 
+  COALESCE(loc.location_name, i.location::TEXT, 'Unknown') AS location,
+  u.name AS "assignedUser",
+  u.email_id AS "assignedUserEmail"
+`;
+
+const FROM_CLAUSE = `
+  inventory i
+  LEFT JOIN asset_type_table att ON i.asset_type = att.asset_type_id
+  LEFT JOIN locations loc ON i.location = loc.location_id
+  LEFT JOIN assigned_assets aa ON i.asset_id = aa.asset_id AND aa.active = true
+  LEFT JOIN users u ON aa.user_id = u.user_id
 `;
 
 /**
@@ -27,7 +37,7 @@ const SELECT_FIELDS = `
 export async function getDeviceById(id: string): Promise<DeviceDetail | null> {
   try {
     const result = await pool.query(
-      `SELECT ${SELECT_FIELDS} FROM inventory WHERE asset_id::TEXT = $1 OR asset_code = $1`,
+      `SELECT ${SELECT_FIELDS} FROM ${FROM_CLAUSE} WHERE i.asset_id::TEXT = $1 OR i.asset_code = $1`,
       [id]
     );
     return (result.rows[0] as DeviceDetail) || null;
@@ -45,7 +55,7 @@ export async function getDeviceByAssetCode(
 ): Promise<DeviceDetail | null> {
   try {
     const result = await pool.query(
-      `SELECT ${SELECT_FIELDS} FROM inventory WHERE LOWER(asset_code) = LOWER($1) OR asset_id::TEXT = $1`,
+      `SELECT ${SELECT_FIELDS} FROM ${FROM_CLAUSE} WHERE LOWER(i.asset_code) = LOWER($1) OR i.asset_id::TEXT = $1`,
       [assetCode]
     );
     return (result.rows[0] as DeviceDetail) || null;
@@ -76,24 +86,24 @@ export async function getDeviceByAssetCodeForRole(
 export async function listInventoryDevices(
   filters?: Partial<Pick<DeviceDetail, "status" | "assetType" | "location">>
 ): Promise<DeviceDetail[]> {
-  let query = `SELECT ${SELECT_FIELDS} FROM inventory WHERE 1=1`;
+  let query = `SELECT ${SELECT_FIELDS} FROM ${FROM_CLAUSE} WHERE 1=1`;
   const values: any[] = [];
   let index = 1;
 
   if (filters?.status) {
-    query += ` AND status = $${index}`;
+    query += ` AND i.status = $${index}`;
     values.push(filters.status);
     index++;
   }
 
   if (filters?.assetType) {
-    query += ` AND LOWER(asset_type) = LOWER($${index})`;
+    query += ` AND (LOWER(att.asset_type) = LOWER($${index}) OR LOWER(i.asset_type::TEXT) = LOWER($${index}))`;
     values.push(filters.assetType);
     index++;
   }
 
   if (filters?.location) {
-    query += ` AND LOWER(location) = LOWER($${index})`;
+    query += ` AND (LOWER(loc.location_name) = LOWER($${index}) OR LOWER(i.location::TEXT) = LOWER($${index}))`;
     values.push(filters.location);
     index++;
   }
@@ -110,33 +120,32 @@ export async function listDevicesByRole(
   userEmail?: string,
   filters?: Partial<Pick<DeviceDetail, "status" | "assetType" | "location">>
 ): Promise<DeviceDetail[]> {
-  let query = `SELECT ${SELECT_FIELDS} FROM inventory WHERE 1=1`;
+  const normalizedRole = normalizeRole(role);
+  let query = `SELECT ${SELECT_FIELDS} FROM ${FROM_CLAUSE} WHERE 1=1`;
   const values: any[] = [];
   let index = 1;
 
-  if (role === "user") {
+  if (normalizedRole === "Employee") {
     if (!userEmail) return [];
-    query += ` AND assigned_user_email = $${index}`;
+    query += ` AND LOWER(u.email_id) = LOWER($${index})`;
     values.push(userEmail);
     index++;
-  } else if (role !== "admin") {
-    // Return all devices by default or filter if needed
   }
 
   if (filters?.status) {
-    query += ` AND status = $${index}`;
+    query += ` AND i.status = $${index}`;
     values.push(filters.status);
     index++;
   }
 
   if (filters?.assetType) {
-    query += ` AND LOWER(asset_type) = LOWER($${index})`;
+    query += ` AND (LOWER(att.asset_type) = LOWER($${index}) OR LOWER(i.asset_type::TEXT) = LOWER($${index}))`;
     values.push(filters.assetType);
     index++;
   }
 
   if (filters?.location) {
-    query += ` AND LOWER(location) = LOWER($${index})`;
+    query += ` AND (LOWER(loc.location_name) = LOWER($${index}) OR LOWER(i.location::TEXT) = LOWER($${index}))`;
     values.push(filters.location);
     index++;
   }

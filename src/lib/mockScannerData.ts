@@ -24,6 +24,8 @@ export interface DeviceDetailView {
 }
 
 export interface AuthenticatorTokenData {
+  totpId?: string;
+  id?: string;
   issuer: string;
   account: string;
   secret: string;
@@ -31,6 +33,8 @@ export interface AuthenticatorTokenData {
   digits?: number;
   period?: number;
   rawPayload: string;
+  createdOn?: string;
+  updatedOn?: string;
 }
 
 export interface OrgUser {
@@ -263,55 +267,36 @@ export function parseScannedQr(payload: string): {
  *   return data.device;
  */
 export async function fetchDeviceByCode(code: string): Promise<DeviceDetailView | null> {
-  const normalized = code.trim().toLowerCase();
+  const trimmed = code?.trim();
+  if (!trimmed) return null;
 
-  // 1. Check local mock registry
-  const found = MOCK_ASSETS.find(
-    (a) =>
-      a.assetCode.toLowerCase() === normalized ||
-      a.id.toLowerCase() === normalized
-  );
-
-  if (found) return found;
-
-  // 2. Try fetching from inventory API endpoint if online
   try {
-    const res = await fetch(`/api/inventory?code=${encodeURIComponent(code)}`);
-    if (res.ok) {
-      const json = await res.json();
-      if (json.data && json.data.length > 0) {
-        const item = json.data[0];
-        return {
-          id: item.id || `dev-${Date.now()}`,
-          assetCode: item.assetCode || code,
-          assetType: item.assetType || "Laptop",
-          model: item.model || item.name || "Device Unit",
-          storage: item.storage || "512 GB SSD",
-          operatingSystem: item.operatingSystem || "Windows 11 Enterprise",
-          ram: item.ram || "16 GB",
-          processor: item.processor || "Intel Core i7",
-          purchaseDate: item.purchaseDate || "2024-01-01",
-          status: item.status || "active",
-          purchaseAmount: item.purchaseAmount || 95000,
-          location: item.location || "Headquarters",
-        };
-      }
+    const res = await fetch(`/api/inventory?code=${encodeURIComponent(trimmed)}`);
+    if (!res.ok) {
+      return null;
     }
-  } catch {}
+    const json = await res.json();
+    if (json.success && Array.isArray(json.data) && json.data.length > 0) {
+      const item = json.data[0];
+      return {
+        id: String(item.id || item.assetId || ""),
+        assetCode: String(item.assetCode || trimmed),
+        assetType: item.assetType || "Hardware",
+        model: item.model || item.name || "Device Unit",
+        storage: item.storage || "N/A",
+        operatingSystem: item.operatingSystem || "N/A",
+        ram: item.ram || "N/A",
+        processor: item.processor || "N/A",
+        purchaseDate: item.purchaseDate || "N/A",
+        status: item.status || "active",
+        purchaseAmount: item.purchaseAmount ?? undefined,
+        location: item.location || "N/A",
+      };
+    }
+  } catch (err) {
+    console.error("Error fetching device by code from inventory API:", err);
+  }
 
-  // 3. Dynamic mock fallback for any unscanned asset label so the UI never displays empty
-  return {
-    id: `dev-${Date.now()}`,
-    assetCode: code.toUpperCase(),
-    assetType: "Laptop",
-    model: `Enterprise Asset (${code.toUpperCase()})`,
-    storage: "512 GB NVMe SSD",
-    operatingSystem: "Windows 11 Pro / macOS",
-    ram: "16 GB DDR5",
-    processor: "Intel Core i7-13700H",
-    purchaseDate: "2024-02-15",
-    status: "active",
-    purchaseAmount: 112000,
-    location: "Infopark Campus, Kochi",
-  };
+  // Not found in database
+  return null;
 }

@@ -88,7 +88,6 @@ export default function AuthenticatorTokenCard({
     setIssuer(newName);
     const updatedToken = { ...tokenData, issuer: newName };
     onUpdateToken?.(updatedToken);
-    onToast(`Updated name to "${newName}"`);
     setShowEditModal(false);
   };
 

@@ -28,7 +28,7 @@ export async function getUserRoleByEmail(email?: string | null): Promise<string>
     console.warn("Could not query role from database, falling back to default:", err);
   }
 
-  return normalizeRole(process.env.DEFAULT_USER_ROLE || "Admin");
+  return normalizeRole(process.env.DEFAULT_USER_ROLE || "System Admin");
 }
 
 export const { handlers, signIn, signOut, auth } = NextAuth({

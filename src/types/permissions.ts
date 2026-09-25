@@ -11,7 +11,13 @@ export type DeviceField =
   | "purchaseAmount"
   | "location";
 
-export type RoleName = "Admin" | "IT Admin" | "Manager" | "Employee" | string;
+export type RoleName =
+  | "Employee"
+  | "Reporting Manager"
+  | "HR"
+  | "System Admin"
+  | "CXO"
+  | string;
 
 export interface RolePermissions {
   viewAllFields: boolean;

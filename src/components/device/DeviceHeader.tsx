@@ -196,6 +196,7 @@ export default function DeviceHeader({ device, role }: Props) {
               <ReportIssueButton
                 assetCode={device.assetCode}
                 model={device.model || "Device"}
+                assetId={device.id || device.assetCode}
               />
             </Box>
           )}

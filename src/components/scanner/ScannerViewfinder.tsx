@@ -124,22 +124,191 @@ export default function ScannerViewfinder({
 
 
 
-  // Upload image
+  // Preprocess uploaded image for robust QR detection across varied resolutions and dark-mode screenshots
+  const preprocessImage = async (
+    file: File,
+    options: {
+      maxDim?: number;
+      enhanceContrast?: boolean;
+      autoCropCard?: boolean;
+      whitePadding?: number;
+    } = {}
+  ): Promise<File | null> => {
+    const { maxDim = 1200, enhanceContrast = false, autoCropCard = false, whitePadding = 0 } = options;
+
+    return new Promise((resolve) => {
+      const img = new Image();
+      const url = URL.createObjectURL(file);
+      img.onload = () => {
+        URL.revokeObjectURL(url);
+        let { width, height } = img;
+        if (width > maxDim || height > maxDim) {
+          if (width > height) {
+            height = Math.round((height * maxDim) / width);
+            width = maxDim;
+          } else {
+            width = Math.round((width * maxDim) / height);
+            height = maxDim;
+          }
+        }
+
+        const canvas = document.createElement("canvas");
+        canvas.width = Math.max(1, width);
+        canvas.height = Math.max(1, height);
+        const ctx = canvas.getContext("2d", { willReadFrequently: true });
+        if (!ctx) return resolve(null);
+
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+        // Auto-detect white QR card if screenshot has a surrounding dark background
+        let targetCanvas = canvas;
+        if (autoCropCard && canvas.width >= 40 && canvas.height >= 40) {
+          try {
+            const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+            const data = imgData.data;
+            let minX = canvas.width,
+              maxX = 0,
+              minY = canvas.height,
+              maxY = 0;
+            let brightCount = 0;
+
+            for (let y = 0; y < canvas.height; y++) {
+              for (let x = 0; x < canvas.width; x++) {
+                const idx = (y * canvas.width + x) * 4;
+                if (data[idx] > 200 && data[idx + 1] > 200 && data[idx + 2] > 200) {
+                  brightCount++;
+                  if (x < minX) minX = x;
+                  if (x > maxX) maxX = x;
+                  if (y < minY) minY = y;
+                  if (y > maxY) maxY = y;
+                }
+              }
+            }
+
+            const totalPixels = canvas.width * canvas.height;
+            const hasPadding = minX > 3 || minY > 3 || maxX < canvas.width - 4 || maxY < canvas.height - 4;
+            const isCard = brightCount > totalPixels * 0.1 && hasPadding && maxX > minX + 30 && maxY > minY + 30;
+
+            if (isCard) {
+              const cardW = maxX - minX + 1;
+              const cardH = maxY - minY + 1;
+              const pad = Math.max(24, whitePadding);
+
+              const cardCanvas = document.createElement("canvas");
+              cardCanvas.width = cardW + pad * 2;
+              cardCanvas.height = cardH + pad * 2;
+              const cardCtx = cardCanvas.getContext("2d");
+              if (cardCtx) {
+                cardCtx.fillStyle = "#ffffff";
+                cardCtx.fillRect(0, 0, cardCanvas.width, cardCanvas.height);
+                cardCtx.drawImage(canvas, minX, minY, cardW, cardH, pad, pad, cardW, cardH);
+                targetCanvas = cardCanvas;
+              }
+            }
+          } catch { }
+        } else if (whitePadding > 0) {
+          const padCanvas = document.createElement("canvas");
+          padCanvas.width = canvas.width + whitePadding * 2;
+          padCanvas.height = canvas.height + whitePadding * 2;
+          const padCtx = padCanvas.getContext("2d");
+          if (padCtx) {
+            padCtx.fillStyle = "#ffffff";
+            padCtx.fillRect(0, 0, padCanvas.width, padCanvas.height);
+            padCtx.drawImage(canvas, whitePadding, whitePadding);
+            targetCanvas = padCanvas;
+          }
+        }
+
+        // Apply high contrast grayscale if requested
+        if (enhanceContrast) {
+          const filterCanvas = document.createElement("canvas");
+          filterCanvas.width = targetCanvas.width;
+          filterCanvas.height = targetCanvas.height;
+          const filterCtx = filterCanvas.getContext("2d");
+          if (filterCtx) {
+            filterCtx.filter = "contrast(160%) grayscale(100%)";
+            filterCtx.drawImage(targetCanvas, 0, 0);
+            targetCanvas = filterCanvas;
+          }
+        }
+
+        targetCanvas.toBlob(
+          (blob) => {
+            if (!blob) return resolve(null);
+            resolve(new File([blob], file.name, { type: "image/png" }));
+          },
+          "image/png",
+          0.95
+        );
+      };
+      img.onerror = () => {
+        URL.revokeObjectURL(url);
+        resolve(null);
+      };
+      img.src = url;
+    });
+  };
+
+  // Upload image with multi-tier fallback (original, auto-cropped card, padded, high-contrast)
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
     setIsProcessing(true);
+    let tempScanner: any = null;
+
     try {
       const { Html5Qrcode } = await import("html5-qrcode");
-      const tempScanner = new Html5Qrcode("temp-qr-file-processor");
-      const result = await tempScanner.scanFile(file, true);
-      tempScanner.clear();
-      playBeep();
-      onScanResult(result);
-    } catch {
+      tempScanner = new Html5Qrcode("temp-qr-file-processor");
+
+      let result: string | null = null;
+
+      // Tier 1: Direct scan without rendering to DOM
+      try {
+        result = await tempScanner.scanFile(file, false);
+      } catch (err1) {
+        // Tier 2: Auto-crop white card if image has surrounding dark border + add clean quiet zone
+        const croppedCard = await preprocessImage(file, { autoCropCard: true, whitePadding: 32 });
+        if (croppedCard) {
+          try {
+            result = await tempScanner.scanFile(croppedCard, false);
+          } catch (err2) {
+            // Tier 3: Downscaled scan (optimal 1200px max dimension) with white quiet zone
+            const resized = await preprocessImage(file, { maxDim: 1200, whitePadding: 24 });
+            if (resized) {
+              try {
+                result = await tempScanner.scanFile(resized, false);
+              } catch (err3) {
+                // Tier 4: High contrast grayscale scan (optimal 800px max dimension)
+                const enhanced = await preprocessImage(file, { maxDim: 800, enhanceContrast: true, whitePadding: 32 });
+                if (enhanced) {
+                  try {
+                    result = await tempScanner.scanFile(enhanced, false);
+                  } catch (err4) {
+                    console.warn("All QR decode attempts failed:", { err1, err2, err3, err4 });
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+
+      if (result) {
+        playBeep();
+        onScanResult(result);
+      } else {
+        onToast("No valid QR code found in this image.");
+      }
+    } catch (err) {
+      console.error("QR scanner error:", err);
       onToast("No valid QR code found in this image.");
     } finally {
+      if (tempScanner) {
+        try {
+          tempScanner.clear();
+        } catch { }
+      }
       setIsProcessing(false);
       if (fileInputRef.current) fileInputRef.current.value = "";
     }
@@ -176,8 +345,19 @@ export default function ScannerViewfinder({
         flexDirection: "column",
       }}
     >
-      {/* Hidden file input for image upload */}
-      <div id="temp-qr-file-processor" style={{ display: "none" }} />
+      {/* Off-screen container for image QR processor with valid layout dimensions */}
+      <div
+        id="temp-qr-file-processor"
+        style={{
+          position: "fixed",
+          top: -9999,
+          left: -9999,
+          width: 320,
+          height: 320,
+          opacity: 0,
+          pointerEvents: "none",
+        }}
+      />
       <input
         type="file"
         accept="image/png, image/jpeg, image/jpg, image/webp"
