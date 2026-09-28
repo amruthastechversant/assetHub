@@ -27,8 +27,8 @@ type Props = {
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { deviceId } = await params;
   return {
-    title: `Device ${deviceId} | AssetHub`,
-    description: `Device details for asset ${deviceId} — AssetHub IT asset management`,
+    title: `Device ${deviceId} | Instant`,
+    description: `Device details for asset ${deviceId} — Instant IT asset management`,
   };
 }
 
@@ -104,7 +104,7 @@ export default async function DevicePage({ params, searchParams }: Props) {
                   "&:hover": { bgcolor: "#1d4ed8" },
                 }}
               >
-                Sign In to AssetHub
+                Sign In to Instant
               </Button>
             </CardContent>
           </Card>
