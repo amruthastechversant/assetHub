@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test": "node --experimental-strip-types --test tests/permissions.test.ts",
+    "test": "node --experimental-strip-types --test tests/*.test.ts",
     "postinstall": "prisma skills sync || exit 0"
   },
   "dependencies": {
