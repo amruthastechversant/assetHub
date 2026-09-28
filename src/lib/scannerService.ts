@@ -1,11 +1,3 @@
-// ============================================================================
-// MOCK DATA & API WIREABLE SERVICES FOR INSTANT
-// ============================================================================
-// Contains mock devices strictly matching the 11 permission fields:
-// "assetCode", "assetType", "model", "storage", "operatingSystem",
-// "ram", "processor", "purchaseDate", "status", "purchaseAmount", "location"
-// ============================================================================
-
 import { DeviceStatus } from "@/types/device";
 
 export interface DeviceDetailView {
@@ -37,89 +29,8 @@ export interface AuthenticatorTokenData {
   updatedOn?: string;
 }
 
-export interface OrgUser {
-  id: string;
-  name: string;
-  email: string;
-  role: string;
-  department: string;
-}
-
-export const ORG_USERS_LIST: OrgUser[] = [
-  { id: "u1", name: "Ashiq S", email: "ashiq@company.com", role: "Admin", department: "IT Operations" },
-  { id: "u2", name: "Amrutha Nair", email: "amrutha@company.com", role: "Lead Engineer", department: "Engineering" },
-  { id: "u3", name: "Rahul Krishna", email: "rahul.k@company.com", role: "DevOps", department: "Infrastructure" },
-  { id: "u4", name: "Sneha Menon", email: "sneha.m@company.com", role: "Product Manager", department: "Product" },
-  { id: "u5", name: "Karthik R", email: "karthik.r@company.com", role: "SecOps", department: "Information Security" },
-  { id: "u6", name: "Ananya Pillai", email: "ananya.p@company.com", role: "QA Engineer", department: "Quality Assurance" },
-  { id: "u7", name: "Vipin Das", email: "vipin.d@company.com", role: "IT Specialist", department: "IT Support" },
-  { id: "u8", name: "Deepa Thomas", email: "deepa.t@company.com", role: "HR Operations", department: "People Operations" },
-];
-
 // ----------------------------------------------------------------------------
-// 1. MOCK ASSET DATABASE (11 EXACT SPEC FIELDS)
-// ----------------------------------------------------------------------------
-export const MOCK_ASSETS: DeviceDetailView[] = [
-  {
-    id: "062687ef-ca34-4afc-bd5b-141f97052212",
-    assetCode: "TV-LAP-02481",
-    assetType: "Laptop",
-    model: "MacBook Pro 14-inch (M3 Pro)",
-    storage: "1 TB NVMe SSD",
-    operatingSystem: "macOS Sequoia 15.3",
-    ram: "36 GB Unified Memory",
-    processor: "Apple M3 Pro (12-core CPU, 18-core GPU)",
-    purchaseDate: "2024-03-18",
-    status: "active",
-    purchaseAmount: 249900,
-    location: "Kochi Infopark - Tower 2, 4th Floor",
-  },
-  {
-    id: "asset-002",
-    assetCode: "TV-MON-09124",
-    assetType: "Monitor",
-    model: "Dell UltraSharp 27 4K USB-C Hub (U2723QE)",
-    storage: "N/A",
-    operatingSystem: "Embedded Firmware v1.0.4",
-    ram: "N/A",
-    processor: "Internal 90W PD Display Controller",
-    purchaseDate: "2024-08-11",
-    status: "active",
-    purchaseAmount: 64500,
-    location: "Trivandrum Technopark - Phase 3",
-  },
-  {
-    id: "asset-003",
-    assetCode: "DEV-10025",
-    assetType: "Laptop",
-    model: "ThinkPad X1 Carbon Gen 11",
-    storage: "512 GB PCIe 4.0 NVMe",
-    operatingSystem: "Ubuntu 24.04 LTS",
-    ram: "32 GB LPDDR5-6400",
-    processor: "Intel Core i7-1365U vPro",
-    purchaseDate: "2023-11-20",
-    status: "active",
-    purchaseAmount: 185000,
-    location: "Kochi Infopark - Lab 1",
-  },
-  {
-    id: "asset-004",
-    assetCode: "TV-DOC-00341",
-    assetType: "Docking Station",
-    model: "CalDigit TS4 Thunderbolt 4 Dock",
-    storage: "N/A",
-    operatingSystem: "Thunderbolt 4 Native",
-    ram: "N/A",
-    processor: "Intel Goshen Ridge Controller",
-    purchaseDate: "2024-01-15",
-    status: "active",
-    purchaseAmount: 38900,
-    location: "Bangalore Office - Hotdesk #4",
-  },
-];
-
-// ----------------------------------------------------------------------------
-// 2. PARSE SCANNED QR CODE (DUAL-MODE: AUTHENTICATOR VS ASSET)
+// PARSE SCANNED QR CODE (DUAL-MODE: AUTHENTICATOR VS ASSET)
 // ----------------------------------------------------------------------------
 export function parseScannedQr(payload: string): {
   type: "authenticator" | "asset";
@@ -223,7 +134,7 @@ export function parseScannedQr(payload: string): {
     };
   }
 
-  // 4. URL format e.g. "https://.../device?id=..."
+  // 4. URL format e.g. "https://.../device?id=..." or "https://.../device/TV-LAP-02481"
   if (trimmed.includes("/device")) {
     try {
       const parsedUrl = new URL(trimmed);
@@ -247,7 +158,7 @@ export function parseScannedQr(payload: string): {
     } catch {}
   }
 
-  // 5. Default: Treat string as Asset Code
+  // 5. Default: Treat raw string directly as Asset Code
   return {
     type: "asset",
     assetCode: trimmed,
@@ -256,15 +167,10 @@ export function parseScannedQr(payload: string): {
 }
 
 // ----------------------------------------------------------------------------
-// 3. API-WIREABLE ASSET FETCHER
+// ASSET INVENTORY FETCHER
 // ----------------------------------------------------------------------------
 /**
- * Look up device details by scanned asset code or ID.
- * 
- * TODO: To wire directly to real backend API:
- *   const res = await fetch(`/api/devices/lookup?code=${encodeURIComponent(code)}`);
- *   const data = await res.json();
- *   return data.device;
+ * Look up device details by scanned asset code or ID from the inventory database.
  */
 export async function fetchDeviceByCode(code: string): Promise<DeviceDetailView | null> {
   const trimmed = code?.trim();

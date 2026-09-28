@@ -12,11 +12,22 @@ export const metadata: Metadata = {
   },
 };
 
-export default async function Home() {
+export default async function Home({
+  searchParams,
+}: {
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
+}) {
   const session = await auth();
 
   if (session?.user) {
-    return <ScannerDashboard />;
+    const resolvedParams = await searchParams;
+    const tabParam = resolvedParams.tab;
+    const initialTab =
+      typeof tabParam === "string" && ["scanner", "recent", "authenticators"].includes(tabParam)
+        ? (tabParam as "scanner" | "recent" | "authenticators")
+        : undefined;
+
+    return <ScannerDashboard initialTab={initialTab} />;
   }
 
   return <LoginPage />;

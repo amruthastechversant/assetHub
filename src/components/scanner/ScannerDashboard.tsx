@@ -40,7 +40,7 @@ import {
   fetchDeviceByCode,
   DeviceDetailView,
   AuthenticatorTokenData,
-} from "@/lib/mockScannerData";
+} from "@/lib/scannerService";
 import { generateTOTP, formatOtpCode, getRemainingSeconds } from "@/lib/totp";
 
 // Recent scan entry structure
@@ -68,11 +68,15 @@ function EnrolledModalOtpLive({
   onToast: (msg: string) => void;
 }) {
   const [otp, setOtp] = useState(initialOtp);
-  const [remaining, setRemaining] = useState(30);
-  const [percentage, setPercentage] = useState(100);
+  const period = tokenData.period || 30;
+  const [remaining, setRemaining] = useState<number>(() => getRemainingSeconds(period).remaining);
+  const [percentage, setPercentage] = useState<number>(() => getRemainingSeconds(period).percentage);
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
+    const { remaining: initRem, percentage: initPct } = getRemainingSeconds(period);
+    setRemaining(initRem);
+    setPercentage(initPct);
     const update = async () => {
       try {
         const code = await generateTOTP(tokenData.secret, {
@@ -154,7 +158,7 @@ function EnrolledModalOtpLive({
               height: "100%",
               backgroundColor: timerColor,
               borderRadius: "999px",
-              transition: "width 1s linear, background-color 0.3s ease",
+              transition: remaining === period ? "none" : "width 1s linear, background-color 0.3s ease",
             }}
           />
         </Box>
@@ -167,7 +171,22 @@ function EnrolledModalOtpLive({
   );
 }
 
-export default function ScannerDashboard() {
+// Deduplicate tokens by secret or (issuer + account)
+function dedupeTokens(tokens: AuthenticatorTokenData[]): AuthenticatorTokenData[] {
+  const seen = new Set<string>();
+  return tokens.filter((t) => {
+    const key = (t.secret || `${t.issuer}:${t.account}`).trim().toUpperCase();
+    if (!key || seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+interface ScannerDashboardProps {
+  initialTab?: "scanner" | "recent" | "authenticators";
+}
+
+export default function ScannerDashboard({ initialTab }: ScannerDashboardProps = {}) {
   const { data: session } = useSession();
   const userRole = (session?.user as any)?.role || "Administrator";
   const userName = session?.user?.name || "Ashiq S";
@@ -177,7 +196,71 @@ export default function ScannerDashboard() {
   const isDark = themeMode === "dark";
 
   // Tabs: "scanner" | "recent" | "authenticators"
-  const [activeTab, setActiveTab] = useState<"scanner" | "recent" | "authenticators">("scanner");
+  const [activeTab, setActiveTab] = useState<"scanner" | "recent" | "authenticators">(() => {
+    if (initialTab) return initialTab;
+    if (typeof window !== "undefined") {
+      try {
+        const urlParams = new URLSearchParams(window.location.search);
+        const tabParam = urlParams.get("tab");
+        if (tabParam === "authenticators" || tabParam === "recent" || tabParam === "scanner") {
+          return tabParam as "scanner" | "recent" | "authenticators";
+        }
+        const savedTab = sessionStorage.getItem("instant_active_tab");
+        if (savedTab === "authenticators" || savedTab === "recent" || savedTab === "scanner") {
+          return savedTab as "scanner" | "recent" | "authenticators";
+        }
+      } catch { }
+    }
+    return "scanner";
+  });
+
+  const handleTabChange = useCallback((tab: "scanner" | "recent" | "authenticators") => {
+    setActiveTab(tab);
+    try {
+      sessionStorage.setItem("instant_active_tab", tab);
+      const url = new URL(window.location.href);
+      if (tab === "scanner") {
+        url.searchParams.delete("tab");
+      } else {
+        url.searchParams.set("tab", tab);
+      }
+      window.history.replaceState({}, "", url.toString());
+    } catch { }
+  }, []);
+
+  // Restore active tab on mount / refresh from URL query or sessionStorage
+  useEffect(() => {
+    try {
+      const urlParams = new URLSearchParams(window.location.search);
+      const tabParam = urlParams.get("tab");
+      if (tabParam === "authenticators" || tabParam === "recent" || tabParam === "scanner") {
+        setActiveTab(tabParam);
+        sessionStorage.setItem("instant_active_tab", tabParam);
+        return;
+      }
+      const savedTab = sessionStorage.getItem("instant_active_tab");
+      if (savedTab === "authenticators" || savedTab === "recent" || savedTab === "scanner") {
+        setActiveTab(savedTab);
+      }
+    } catch { }
+  }, []);
+
+  // Listen for browser back/forward buttons
+  useEffect(() => {
+    const handlePopState = () => {
+      try {
+        const urlParams = new URLSearchParams(window.location.search);
+        const tabParam = urlParams.get("tab");
+        if (tabParam === "authenticators" || tabParam === "recent" || tabParam === "scanner") {
+          setActiveTab(tabParam);
+        } else {
+          setActiveTab("scanner");
+        }
+      } catch { }
+    };
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, []);
 
   // Core Data States
   const [justScannedItem, setJustScannedItem] = useState<RecentScanItem | null>(null);
@@ -224,7 +307,11 @@ export default function ScannerDashboard() {
       if (storedTokens) {
         const parsed = JSON.parse(storedTokens);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          setAuthTokens(parsed);
+          const deduped = dedupeTokens(parsed);
+          setAuthTokens(deduped);
+          try {
+            localStorage.setItem("instant_auth_tokens", JSON.stringify(deduped));
+          } catch { }
         }
       }
     } catch { }
@@ -237,16 +324,11 @@ export default function ScannerDashboard() {
       if (res.ok) {
         const data = await res.json();
         if (data.success && Array.isArray(data.tokens)) {
-          setAuthTokens((prev) => {
-            const dbTokens: AuthenticatorTokenData[] = data.tokens;
-            const dbSecrets = new Set(dbTokens.map((t) => t.secret));
-            const localOnly = prev.filter((t) => !dbSecrets.has(t.secret));
-            const merged = [...dbTokens, ...localOnly];
-            try {
-              localStorage.setItem("instant_auth_tokens", JSON.stringify(merged));
-            } catch { }
-            return merged;
-          });
+          const dedupedDbTokens = dedupeTokens(data.tokens);
+          setAuthTokens(dedupedDbTokens);
+          try {
+            localStorage.setItem("instant_auth_tokens", JSON.stringify(dedupedDbTokens));
+          } catch { }
         }
       }
     } catch (err) {
@@ -327,7 +409,15 @@ export default function ScannerDashboard() {
   };
 
   // Universal QR scan handler
+  const lastScanRef = React.useRef<{ payload: string; time: number }>({ payload: "", time: 0 });
+
   const handleScanResult = async (rawPayload: string) => {
+    const now = Date.now();
+    if (lastScanRef.current.payload === rawPayload && now - lastScanRef.current.time < 2500) {
+      return; // Ignore duplicate scan trigger in rapid succession
+    }
+    lastScanRef.current = { payload: rawPayload, time: now };
+
     const parsed = parseScannedQr(rawPayload);
 
     if (parsed.type === "authenticator" && parsed.authData) {
@@ -345,10 +435,12 @@ export default function ScannerDashboard() {
       } catch { }
 
       setAuthTokens((prev) => {
-        const exists = prev.find(
-          (t) => t.issuer.toLowerCase() === token.issuer.toLowerCase() && t.account.toLowerCase() === token.account.toLowerCase()
+        const filtered = prev.filter(
+          (t) =>
+            t.secret?.toUpperCase() !== token.secret?.toUpperCase() &&
+            !(t.issuer.toLowerCase() === token.issuer.toLowerCase() && t.account.toLowerCase() === token.account.toLowerCase())
         );
-        const next = exists ? prev : [token, ...prev];
+        const next = [token, ...filtered];
         try {
           localStorage.setItem("instant_auth_tokens", JSON.stringify(next));
         } catch { }
@@ -627,7 +719,7 @@ export default function ScannerDashboard() {
             {/* Tab 1: Scanner */}
             <Box
               component="button"
-              onClick={() => setActiveTab("scanner")}
+              onClick={() => handleTabChange("scanner")}
               sx={{
                 display: "flex",
                 alignItems: "center",
@@ -652,7 +744,7 @@ export default function ScannerDashboard() {
             {/* Tab 2: Authenticators */}
             <Box
               component="button"
-              onClick={() => setActiveTab("authenticators")}
+              onClick={() => handleTabChange("authenticators")}
               sx={{
                 display: "flex",
                 alignItems: "center",
@@ -923,7 +1015,7 @@ export default function ScannerDashboard() {
 
                 {recentScans.length > 0 ? (
                   <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
-                    {recentScans.map((item, idx) => (
+                    {recentScans.map((item) => (
                       <Box
                         key={item.device.assetCode}
                         onClick={() => {
@@ -1063,7 +1155,7 @@ export default function ScannerDashboard() {
               <Button
                 variant="contained"
                 onClick={() => {
-                  setActiveTab("scanner");
+                  handleTabChange("scanner");
                 }}
                 startIcon={<AddIcon />}
                 sx={{
@@ -1151,7 +1243,7 @@ export default function ScannerDashboard() {
                 </Typography>
                 <Button
                   variant="contained"
-                  onClick={() => setActiveTab("scanner")}
+                  onClick={() => handleTabChange("scanner")}
                   startIcon={<QrCodeScannerIcon />}
                   sx={{
                     backgroundColor: "#6366f1",
@@ -1181,13 +1273,18 @@ export default function ScannerDashboard() {
                   gap: { xs: 1.5, sm: 2 },
                 }}
               >
-                {filteredTokens.map((token, i) => (
+                {filteredTokens.map((token) => (
                   <AuthenticatorTokenCard
-                    key={`${token.issuer}-${token.account}-${i}`}
+                    key={token.totpId || token.id || token.secret || `${token.issuer}-${token.account}`}
                     tokenData={token}
                     themeMode={themeMode}
                     onClose={async () => {
-                      const updated = authTokens.filter((_, idx) => idx !== i);
+                      const updated = authTokens.filter(
+                        (t) =>
+                          (token.totpId ? t.totpId !== token.totpId : true) &&
+                          (token.id ? t.id !== token.id : true) &&
+                          t.secret !== token.secret
+                      );
                       setAuthTokens(updated);
                       try {
                         localStorage.setItem("instant_auth_tokens", JSON.stringify(updated));
@@ -1251,7 +1348,7 @@ export default function ScannerDashboard() {
                         console.error("Failed to persist name change to DB:", err);
                       }
                     }}
-                    onScanAnother={() => setActiveTab("scanner")}
+                    onScanAnother={() => handleTabChange("scanner")}
                     onToast={showToast}
                   />
                 ))}
@@ -1486,7 +1583,7 @@ export default function ScannerDashboard() {
           {/* Mobile Tab 1: Scan */}
           <Box
             component="button"
-            onClick={() => setActiveTab("scanner")}
+            onClick={() => handleTabChange("scanner")}
             sx={{
               border: 0,
               borderRadius: "14px",
@@ -1511,7 +1608,7 @@ export default function ScannerDashboard() {
           {/* Mobile Tab 2: Last device */}
           <Box
             component="button"
-            onClick={() => setActiveTab("recent")}
+            onClick={() => handleTabChange("recent")}
             sx={{
               border: 0,
               borderRadius: "14px",
@@ -1536,7 +1633,7 @@ export default function ScannerDashboard() {
           {/* Mobile Tab 3: Reports / Auth */}
           <Box
             component="button"
-            onClick={() => setActiveTab("authenticators")}
+            onClick={() => handleTabChange("authenticators")}
             sx={{
               border: 0,
               borderRadius: "14px",

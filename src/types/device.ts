@@ -1,4 +1,3 @@
-import type { DeviceField } from "./permissions.ts";
 
 export type DeviceStatus = "active" | "inactive" | "retired" | "restricted";
 

@@ -13,7 +13,7 @@ import LockResetIcon from "@mui/icons-material/LockReset";
 import EditOutlinedIcon from "@mui/icons-material/EditOutlined";
 import DeleteIcon from "@mui/icons-material/Delete";
 import { generateTOTP, getRemainingSeconds, formatOtpCode } from "@/lib/totp";
-import { AuthenticatorTokenData } from "@/lib/mockScannerData";
+import { AuthenticatorTokenData } from "@/lib/scannerService";
 import EditAuthenticatorModal from "./EditAuthenticatorModal";
 
 interface AuthenticatorTokenCardProps {
@@ -34,8 +34,9 @@ export default function AuthenticatorTokenCard({
 }: AuthenticatorTokenCardProps) {
   const isDark = themeMode === "dark";
   const [otpCode, setOtpCode] = useState<string>("------");
-  const [remaining, setRemaining] = useState<number>(30);
-  const [percentage, setPercentage] = useState<number>(100);
+  const period = tokenData.period || 30;
+  const [remaining, setRemaining] = useState<number>(() => getRemainingSeconds(period).remaining);
+  const [percentage, setPercentage] = useState<number>(() => getRemainingSeconds(period).percentage);
   const [copied, setCopied] = useState<boolean>(false);
 
   // Active Authenticator State
@@ -43,8 +44,6 @@ export default function AuthenticatorTokenCard({
 
   // Modal Visibility States
   const [showEditModal, setShowEditModal] = useState<boolean>(false);
-
-  const period = tokenData.period || 30;
 
   const updateCode = useCallback(async () => {
     try {
@@ -61,6 +60,11 @@ export default function AuthenticatorTokenCard({
 
   useEffect(() => {
     updateCode();
+    // Synchronize to current wall-clock second immediately
+    const { remaining: initRem, percentage: initPct } = getRemainingSeconds(period);
+    setRemaining(initRem);
+    setPercentage(initPct);
+
     const interval = setInterval(() => {
       const { remaining: rem, percentage: pct } = getRemainingSeconds(period);
       setRemaining(rem);
@@ -283,7 +287,7 @@ export default function AuthenticatorTokenCard({
                 height: "100%",
                 backgroundColor: timerColor,
                 borderRadius: "999px",
-                transition: "width 1s linear, background-color 0.3s ease",
+                transition: remaining === period ? "none" : "width 1s linear, background-color 0.3s ease",
               }}
             />
           </Box>

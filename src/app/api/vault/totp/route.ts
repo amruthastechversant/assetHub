@@ -47,6 +47,7 @@ export async function GET() {
       [userId]
     );
 
+    const seen = new Set<string>();
     const tokens = [];
 
     for (const row of res.rows) {
@@ -91,6 +92,15 @@ export async function GET() {
       }
 
       if (secret) {
+        const secretKey = secret.toUpperCase();
+        const accountKey = `${issuer.toLowerCase()}:${account.toLowerCase()}`;
+        // Deduplicate: If an active record with this secret or account already added, skip older duplicates
+        if (seen.has(secretKey) || (account && seen.has(accountKey))) {
+          continue;
+        }
+        seen.add(secretKey);
+        if (account) seen.add(accountKey);
+
         tokens.push({
           totpId: row.totp_id,
           id: row.totp_id,
@@ -125,7 +135,7 @@ export async function GET() {
 
 /**
  * POST /api/vault/totp
- * Enrolls and saves a new TOTP token into totp_data.
+ * Enrolls and saves a new TOTP token into totp_data without creating duplicates.
  */
 export async function POST(request: NextRequest) {
   const session = await auth();
@@ -166,6 +176,66 @@ export async function POST(request: NextRequest) {
 
       // Encrypt the TOTP payload
       const encryptedData = encryptVaultData(JSON.stringify(qrData));
+
+      // Check if this token is already enrolled for this user to prevent duplicates
+      const incomingSecret = (qrData.secret || "").trim().toUpperCase();
+      const incomingAccount = (qrData.account || "").trim().toLowerCase();
+      const incomingIssuer = accountName.trim().toLowerCase();
+
+      const existingRes = await client.query<{ totp_id: string; encrypted_data: string; account_name: string }>(
+        `SELECT totp_id, encrypted_data, account_name FROM totp_data WHERE created_by = $1 AND active = true`,
+        [userId]
+      );
+
+      let matchedTotpId: string | null = null;
+      for (const row of existingRes.rows) {
+        if (!row.encrypted_data) continue;
+        try {
+          const dec = decryptVaultData(row.encrypted_data);
+          let exSecret = "";
+          let exAccount = "";
+          let exIssuer = (row.account_name || "").trim().toLowerCase();
+          if (dec.trim().startsWith("{")) {
+            const parsed = JSON.parse(dec);
+            const dataObj = parsed.qrData || parsed;
+            exSecret = (dataObj.secret || "").trim().toUpperCase();
+            exAccount = (dataObj.account || "").trim().toLowerCase();
+            if (dataObj.issuer) exIssuer = dataObj.issuer.trim().toLowerCase();
+          } else if (dec.startsWith("otpauth://")) {
+            const parsed = parseTotpConfig(dec);
+            if (parsed) {
+              exSecret = (parsed.secret || "").trim().toUpperCase();
+              exAccount = (parsed.accountName || "").trim().toLowerCase();
+              if (parsed.issuer) exIssuer = parsed.issuer.trim().toLowerCase();
+            }
+          }
+
+          if (
+            (incomingSecret && exSecret && incomingSecret === exSecret) ||
+            (incomingAccount && exAccount && incomingAccount === exAccount && incomingIssuer === exIssuer)
+          ) {
+            matchedTotpId = row.totp_id;
+            break;
+          }
+        } catch { }
+      }
+
+      if (matchedTotpId) {
+        // Token is already enrolled — update it in place rather than creating a duplicate row
+        await client.query(
+          `UPDATE totp_data
+           SET account_name = $1, encrypted_data = $2, updated_on = NOW()
+           WHERE totp_id = $3`,
+          [accountName, encryptedData, matchedTotpId]
+        );
+
+        return NextResponse.json({
+          success: true,
+          message: "TOTP updated successfully",
+          totpId: matchedTotpId,
+          accountName,
+        });
+      }
 
       const insertRes = await client.query<{ totp_id: string }>(
         `INSERT INTO totp_data (account_name, encrypted_data, created_by, created_on, updated_on, active)

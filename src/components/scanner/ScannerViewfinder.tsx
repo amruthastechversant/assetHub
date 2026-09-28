@@ -83,10 +83,17 @@ export default function ScannerViewfinder({
         aspectRatio: 1.0,
       };
 
+      let lastScannedTime = 0;
+
       await html5QrCode.start(
         { facingMode },
         config,
         (decodedText: string) => {
+          const now = Date.now();
+          if (now - lastScannedTime < 2500) {
+            return; // Throttle: prevent multiple triggers of the same QR in rapid succession
+          }
+          lastScannedTime = now;
           playBeep();
           onScanResult(decodedText);
         },
@@ -254,6 +261,7 @@ export default function ScannerViewfinder({
     const file = e.target.files?.[0];
     if (!file) return;
 
+    setCameraError(null);
     setIsProcessing(true);
     let tempScanner: any = null;
 
@@ -295,6 +303,7 @@ export default function ScannerViewfinder({
       }
 
       if (result) {
+        setCameraError(null);
         playBeep();
         onScanResult(result);
       } else {

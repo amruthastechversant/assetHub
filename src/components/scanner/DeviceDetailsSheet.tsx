@@ -12,7 +12,7 @@ import DevicesIcon from "@mui/icons-material/Devices";
 import SendIcon from "@mui/icons-material/Send";
 import AttachFileIcon from "@mui/icons-material/AttachFile";
 import OpenInNewIcon from "@mui/icons-material/OpenInNew";
-import { DeviceDetailView } from "@/lib/mockScannerData";
+import { DeviceDetailView } from "@/lib/scannerService";
 import { getRolePermissions, hasPermission } from "@/lib/permissions";
 import type { DeviceField } from "@/types/permissions";
 
