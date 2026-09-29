@@ -11,6 +11,7 @@ import ReportProblemOutlinedIcon from "@mui/icons-material/ReportProblemOutlined
 import DevicesIcon from "@mui/icons-material/Devices";
 import SendIcon from "@mui/icons-material/Send";
 import AttachFileIcon from "@mui/icons-material/AttachFile";
+import VideocamIcon from "@mui/icons-material/Videocam";
 import OpenInNewIcon from "@mui/icons-material/OpenInNew";
 import { DeviceDetailView } from "@/lib/scannerService";
 import { getRolePermissions, hasPermission } from "@/lib/permissions";
@@ -30,6 +31,7 @@ interface AttachmentItem {
   file: File;
   url: string;
   isImage: boolean;
+  isVideo?: boolean;
   name: string;
   size: number;
 }
@@ -101,30 +103,41 @@ export default function DeviceDetailsSheet({
     const selected = Array.from(e.target.files || []);
     if (!selected.length) return;
 
-    if (attachments.length + selected.length > 5) {
-      onToast(`Maximum 5 attachments allowed (already have ${attachments.length}).`);
+    if (attachments.length + selected.length > 3) {
+      onToast(`Maximum 3 attachments allowed.`);
       e.target.value = "";
       return;
     }
 
-    const currentTotal = attachments.reduce((sum, a) => sum + a.size, 0);
-    const newTotal = selected.reduce((sum, f) => sum + f.size, 0);
-    const maxBytes = 25 * 1024 * 1024; // 25 MB
+    const allowedExtensions = ["jpg", "jpeg", "png", "mp4"];
+    const maxFileSize = 25 * 1024 * 1024; // 25 MB
 
-    if (currentTotal + newTotal > maxBytes) {
-      onToast("Total attachment size exceeds 25 MB limit.");
-      e.target.value = "";
-      return;
+    for (const file of selected) {
+      const ext = file.name.split(".").pop()?.toLowerCase() || "";
+      if (!allowedExtensions.includes(ext)) {
+        onToast("Invalid file type. Only JPG, JPEG, PNG, and MP4 files are allowed.");
+        e.target.value = "";
+        return;
+      }
+
+      if (file.size > maxFileSize) {
+        onToast(`File "${file.name}" exceeds 25 MB limit.`);
+        e.target.value = "";
+        return;
+      }
     }
 
     const newItems: AttachmentItem[] = selected.map((file) => {
-      const isImg = file.type.startsWith("image/");
+      const ext = file.name.split(".").pop()?.toLowerCase() || "";
+      const isImg = file.type.startsWith("image/") || ["jpg", "jpeg", "png"].includes(ext);
+      const isVid = file.type.startsWith("video/") || ext === "mp4";
       const url = URL.createObjectURL(file);
       return {
         id: `${file.name}-${Date.now()}-${Math.random()}`,
         file,
         url,
         isImage: isImg,
+        isVideo: isVid,
         name: file.name,
         size: file.size,
       };
@@ -173,6 +186,31 @@ export default function DeviceDetailsSheet({
         img.style.borderRadius = "8px";
         img.style.boxShadow = "0 10px 40px rgba(0,0,0,0.7)";
         win.document.body.appendChild(img);
+        return;
+      }
+    }
+
+    if (item.isVideo) {
+      const win = window.open("", "_blank");
+      if (win) {
+        win.document.title = item.name;
+        win.document.body.style.margin = "0";
+        win.document.body.style.backgroundColor = "#0b0f19";
+        win.document.body.style.display = "flex";
+        win.document.body.style.alignItems = "center";
+        win.document.body.style.justifyContent = "center";
+        win.document.body.style.minHeight = "100vh";
+        win.document.body.style.padding = "20px";
+        win.document.body.style.boxSizing = "border-box";
+
+        const video = win.document.createElement("video");
+        video.src = item.url;
+        video.controls = true;
+        video.autoplay = true;
+        video.style.maxWidth = "95vw";
+        video.style.maxHeight = "95vh";
+        video.style.borderRadius = "8px";
+        win.document.body.appendChild(video);
         return;
       }
     }
@@ -258,531 +296,547 @@ export default function DeviceDetailsSheet({
       }}
     >
       {/* Pinned Header bar */}
-  <Box
-    sx={{
-      flexShrink: 0,
-      px: { xs: 2.5, sm: 3.5 },
-      py: 2.2,
-      borderBottom: isDark ? "1px solid rgba(99, 102, 241, 0.18)" : "1px solid #e2e8f0",
-      display: "flex",
-      justifyContent: "space-between",
-      alignItems: "center",
-      backgroundColor: isDark ? "rgba(14,20,36,0.98)" : "rgba(255,255,255,0.98)",
-      backdropFilter: "blur(12px)",
-      zIndex: 10,
-    }}
-  >
-    <Typography sx={{ fontWeight: 800, fontSize: "1.1rem", color: isDark ? "#ffffff" : "#08131e" }}>
-      Device Details
-    </Typography>
-
-    {/* Top Actions */}
-    <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-      {/* REPORT AN ISSUE BUTTON */}
-      {canReportIssue && (
-        <Button
-          size="small"
-          onClick={handleOpenIssueModal}
-          startIcon={<ReportProblemOutlinedIcon sx={{ fontSize: 18 }} />}
-          sx={{
-            color: "#ef4444",
-            backgroundColor: "rgba(239, 68, 68, 0.1)",
-            border: "1px solid rgba(239, 68, 68, 0.25)",
-            borderRadius: "12px",
-            px: { xs: 1.5, sm: 2 },
-            py: 0.7,
-            textTransform: "none",
-            fontWeight: 700,
-            fontSize: { xs: "0.8rem", sm: "0.85rem" },
-            whiteSpace: "nowrap",
-            "&:hover": {
-              backgroundColor: "rgba(239, 68, 68, 0.2)",
-              borderColor: "rgba(239, 68, 68, 0.4)",
-              color: "#ef4444",
-            },
-          }}
-        >
-          Report an issue
-        </Button>
-      )}
-
-      <IconButton
-        size="small"
-        onClick={onClose}
-        sx={{
-          color: isDark ? "#94a3b8" : "#64748b",
-          backgroundColor: isDark ? "rgba(255, 255, 255, 0.05)" : "#f1f5f9",
-          width: 36,
-          height: 36,
-          borderRadius: "12px",
-          "&:hover": { backgroundColor: isDark ? "rgba(255, 255, 255, 0.1)" : "#e2e8f0", color: isDark ? "#ffffff" : "#08131e" },
-        }}
-      >
-        <CloseIcon sx={{ fontSize: 20 }} />
-      </IconButton>
-    </Box>
-  </Box>
-
-  {/* Scrollable Content Body */ }
-  <Box
-    sx={{
-      flex: 1,
-      overflowY: "auto",
-      p: { xs: 2.5, sm: 3.5 },
-      scrollbarWidth: "thin",
-      scrollbarColor: isDark ? "rgba(255,255,255,0.2) transparent" : "rgba(0,0,0,0.18) transparent",
-      "&::-webkit-scrollbar": {
-        width: "6px",
-      },
-      "&::-webkit-scrollbar-track": {
-        background: "transparent",
-        margin: "6px 0",
-      },
-      "&::-webkit-scrollbar-thumb": {
-        backgroundColor: isDark ? "rgba(255,255,255,0.2)" : "rgba(0,0,0,0.18)",
-        borderRadius: "999px",
-        "&:hover": {
-          backgroundColor: isDark ? "rgba(255,255,255,0.35)" : "rgba(0,0,0,0.3)",
-        },
-      },
-    }}
-  >
-    {/* Hero Device Section */}
-    <Box
-      sx={{
-        p: { xs: 2.2, sm: 3 },
-        mb: 3,
-        backgroundColor: "#131b2e",
-        borderRadius: "20px",
-        color: "#fff",
-        display: "flex",
-        alignItems: "center",
-        gap: 2.5,
-        border: "1px solid rgba(99, 102, 241, 0.18)",
-      }}
-    >
       <Box
         sx={{
-          width: 64,
-          height: 64,
-          borderRadius: "18px",
-          backgroundColor: "rgba(56, 189, 248, 0.05)",
-          border: "1px solid rgba(99, 102, 241, 0.18)",
-          display: "grid",
-          placeItems: "center",
-          color: "#38bdf8",
           flexShrink: 0,
+          px: { xs: 2.5, sm: 3.5 },
+          py: 2.2,
+          borderBottom: isDark ? "1px solid rgba(99, 102, 241, 0.18)" : "1px solid #e2e8f0",
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          backgroundColor: isDark ? "rgba(14,20,36,0.98)" : "rgba(255,255,255,0.98)",
+          backdropFilter: "blur(12px)",
+          zIndex: 10,
         }}
       >
-        <DevicesIcon sx={{ fontSize: 30 }} />
-      </Box>
-      <Box sx={{ minWidth: 0 }}>
-        <Typography
-          variant="h6"
-          sx={{
-            fontWeight: 700,
-            fontSize: { xs: "1.2rem", sm: "1.35rem" },
-            letterSpacing: "-0.02em",
-            color: "#ffffff",
-            lineHeight: 1.2,
-            mb: 0.5,
-          }}
-        >
-          {device.model}
+        <Typography sx={{ fontWeight: 800, fontSize: "1.1rem", color: isDark ? "#ffffff" : "#08131e" }}>
+          Device Details
         </Typography>
-        <Typography sx={{ color: "#8ea3b0", fontSize: "0.85rem" }}>
-          {device.assetType} · {device.assetCode}
-        </Typography>
-      </Box>
-    </Box>
 
-    {/* Fields Grid */}
-    <Box sx={{ pb: 1 }}>
-      {/* Responsive Field Grid */}
-      <Box
-        sx={{
-          display: "grid",
-          gridTemplateColumns: { xs: "1fr", sm: "repeat(2, 1fr)" },
-          gap: 1.5,
-        }}
-      >
-        {visibleRows.map((row) => (
-          <Box
-            key={row.field}
+        {/* Top Actions */}
+        <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+          {/* REPORT AN ISSUE BUTTON */}
+          {canReportIssue && (
+            <Button
+              size="small"
+              onClick={handleOpenIssueModal}
+              startIcon={<ReportProblemOutlinedIcon sx={{ fontSize: 18 }} />}
+              sx={{
+                color: "#ef4444",
+                backgroundColor: "rgba(239, 68, 68, 0.1)",
+                border: "1px solid rgba(239, 68, 68, 0.25)",
+                borderRadius: "12px",
+                px: { xs: 1.5, sm: 2 },
+                py: 0.7,
+                textTransform: "none",
+                fontWeight: 700,
+                fontSize: { xs: "0.8rem", sm: "0.85rem" },
+                whiteSpace: "nowrap",
+                "&:hover": {
+                  backgroundColor: "rgba(239, 68, 68, 0.2)",
+                  borderColor: "rgba(239, 68, 68, 0.4)",
+                  color: "#ef4444",
+                },
+              }}
+            >
+              Report an issue
+            </Button>
+          )}
+
+          <IconButton
+            size="small"
+            onClick={onClose}
             sx={{
-              backgroundColor: isDark ? "#131b2e" : "#f8fafc",
-              border: isDark ? "1px solid rgba(99, 102, 241, 0.18)" : "1px solid #e2e8f0",
-              borderRadius: "16px",
-              p: 2,
+              color: isDark ? "#94a3b8" : "#64748b",
+              backgroundColor: isDark ? "rgba(255, 255, 255, 0.05)" : "#f1f5f9",
+              width: 36,
+              height: 36,
+              borderRadius: "12px",
+              "&:hover": { backgroundColor: isDark ? "rgba(255, 255, 255, 0.1)" : "#e2e8f0", color: isDark ? "#ffffff" : "#08131e" },
             }}
           >
+            <CloseIcon sx={{ fontSize: 20 }} />
+          </IconButton>
+        </Box>
+      </Box>
+
+      {/* Scrollable Content Body */}
+      <Box
+        sx={{
+          flex: 1,
+          overflowY: "auto",
+          p: { xs: 2.5, sm: 3.5 },
+          scrollbarWidth: "thin",
+          scrollbarColor: isDark ? "rgba(255,255,255,0.2) transparent" : "rgba(0,0,0,0.18) transparent",
+          "&::-webkit-scrollbar": {
+            width: "6px",
+          },
+          "&::-webkit-scrollbar-track": {
+            background: "transparent",
+            margin: "6px 0",
+          },
+          "&::-webkit-scrollbar-thumb": {
+            backgroundColor: isDark ? "rgba(255,255,255,0.2)" : "rgba(0,0,0,0.18)",
+            borderRadius: "999px",
+            "&:hover": {
+              backgroundColor: isDark ? "rgba(255,255,255,0.35)" : "rgba(0,0,0,0.3)",
+            },
+          },
+        }}
+      >
+        {/* Hero Device Section */}
+        <Box
+          sx={{
+            p: { xs: 2.2, sm: 3 },
+            mb: 3,
+            backgroundColor: "#131b2e",
+            borderRadius: "20px",
+            color: "#fff",
+            display: "flex",
+            alignItems: "center",
+            gap: 2.5,
+            border: "1px solid rgba(99, 102, 241, 0.18)",
+          }}
+        >
+          <Box
+            sx={{
+              width: 64,
+              height: 64,
+              borderRadius: "18px",
+              backgroundColor: "rgba(56, 189, 248, 0.05)",
+              border: "1px solid rgba(99, 102, 241, 0.18)",
+              display: "grid",
+              placeItems: "center",
+              color: "#38bdf8",
+              flexShrink: 0,
+            }}
+          >
+            <DevicesIcon sx={{ fontSize: 30 }} />
+          </Box>
+          <Box sx={{ minWidth: 0 }}>
             <Typography
+              variant="h6"
               sx={{
-                color: isDark ? "#94a3b8" : "#64748b",
-                fontSize: "0.7rem",
                 fontWeight: 700,
-                textTransform: "uppercase",
-                letterSpacing: "0.05em",
+                fontSize: { xs: "1.2rem", sm: "1.35rem" },
+                letterSpacing: "-0.02em",
+                color: "#ffffff",
+                lineHeight: 1.2,
                 mb: 0.5,
               }}
             >
-              {row.label}
+              {device.model}
             </Typography>
-            <Typography
-              sx={{
-                color: row.highlight
-                  ? (isDark ? "#38bdf8" : "#4f46e5")
-                  : (isDark ? "#ffffff" : "#08131e"),
-                fontWeight: row.highlight ? 800 : 700,
-                fontSize: "0.95rem",
-                wordBreak: "break-word",
-                fontFamily: row.highlight ? "monospace" : "inherit",
-              }}
-            >
-              {row.value || "—"}
+            <Typography sx={{ color: "#8ea3b0", fontSize: "0.85rem" }}>
+              {device.assetType} · {device.assetCode}
             </Typography>
           </Box>
-        ))}
-      </Box>
-    </Box>
-  </Box>
+        </Box>
 
-  {/* Pinned Action Buttons Footer */}
-  <Box
-    sx={{
-      flexShrink: 0,
-      p: { xs: 2, sm: 2.2 },
-      px: { xs: 2.5, sm: 3.5 },
-      borderTop: isDark ? "1px solid rgba(99, 102, 241, 0.18)" : "1px solid #e2e8f0",
-      backgroundColor: isDark ? "rgba(14,20,36,0.98)" : "rgba(255,255,255,0.98)",
-      backdropFilter: "blur(12px)",
-      display: "flex",
-      justifyContent: { xs: "stretch", sm: "flex-end" },
-      alignItems: "center",
-      zIndex: 10,
-    }}
-  >
-    <Button
-      variant="outlined"
-      onClick={onClose}
-      startIcon={<CloseIcon sx={{ fontSize: 18 }} />}
-      sx={{
-        width: { xs: "100%", sm: "auto" },
-        minWidth: { sm: 120 },
-        borderColor: isDark ? "rgba(255, 255, 255, 0.16)" : "#cbd5e1",
-        color: isDark ? "#94a3b8" : "#64748b",
-        fontWeight: 650,
-        fontSize: "0.9rem",
-        py: { xs: 1.25, sm: 1.15 },
-        px: { sm: 3.5 },
-        borderRadius: "14px",
-        textTransform: "none",
-        backgroundColor: isDark ? "rgba(255, 255, 255, 0.03)" : "#f8fafc",
-        "&:hover": {
-          borderColor: isDark ? "rgba(255, 255, 255, 0.3)" : "#94a3b8",
-          backgroundColor: isDark ? "rgba(255, 255, 255, 0.08)" : "#e2e8f0",
-          color: isDark ? "#ffffff" : "#0f172a",
-        },
-      }}
-    >
-      Close
-    </Button>
-  </Box>
-
-  {/* REPORT AN ISSUE MODAL */ }
-  {
-    showIssueModal && (
-      <Box
-        sx={{
-          position: "fixed",
-          inset: 0,
-          zIndex: 10000,
-          backgroundColor: "rgba(3, 7, 18, 0.8)",
-          backdropFilter: "blur(12px)",
-          display: "flex",
-          alignItems: { xs: "flex-end", sm: "center" },
-          justifyContent: "center",
-          p: { xs: 0, sm: 2 },
-        }}
-      >
-        <Box
-          sx={{
-            backgroundColor: "#111827",
-            border: "1px solid rgba(255, 255, 255, 0.12)",
-            borderRadius: { xs: "24px 24px 0 0", sm: "24px" },
-            width: "100%",
-            maxWidth: 480,
-            boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.8)",
-            overflow: "hidden",
-            maxHeight: "92vh",
-            display: "flex",
-            flexDirection: "column",
-          }}
-        >
-          {/* Modal Header */}
+        {/* Fields Grid */}
+        <Box sx={{ pb: 1 }}>
+          {/* Responsive Field Grid */}
           <Box
             sx={{
-              px: { xs: 2.5, sm: 3 },
-              py: 2.2,
-              borderBottom: "1px solid rgba(255, 255, 255, 0.08)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-              backgroundColor: "#162032",
+              display: "grid",
+              gridTemplateColumns: { xs: "1fr", sm: "repeat(2, 1fr)" },
+              gap: 1.5,
             }}
           >
-            <Box sx={{ display: "flex", alignItems: "center", gap: 1.2 }}>
-              <ReportProblemOutlinedIcon sx={{ color: "#f87171", fontSize: 22 }} />
-              <Typography variant="h6" sx={{ fontWeight: 700, fontSize: "1.05rem", color: "#fff" }}>
-                Report Device Issue
-              </Typography>
-            </Box>
-
-            <IconButton
-              size="small"
-              onClick={() => setShowIssueModal(false)}
-              sx={{ color: "#94a3b8" }}
-            >
-              <CloseIcon fontSize="small" />
-            </IconButton>
-          </Box>
-
-          {/* Form Input: Only Device details (name, id), Description, and Attachment upload */}
-          <Box
-            component="form"
-            onSubmit={handleSubmitIssue}
-            sx={{ p: { xs: 2.5, sm: 3 }, overflowY: "auto" }}
-          >
-            {/* Target Device Details (Name & ID) */}
-            <Box
-              sx={{
-                backgroundColor: "rgba(255, 255, 255, 0.03)",
-                border: "1px solid rgba(255, 255, 255, 0.08)",
-                borderRadius: "14px",
-                p: "14px 16px",
-                mb: 2.5,
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-              }}
-            >
-              <Box sx={{ minWidth: 0 }}>
-                <Typography sx={{ color: "#94a3b8", fontSize: "0.72rem", textTransform: "uppercase", fontWeight: 700 }}>
-                  Device Details
-                </Typography>
-                <Typography sx={{ color: "#ffffff", fontWeight: 750, fontSize: "0.95rem", mt: 0.2 }}>
-                  {device.model}
-                </Typography>
-                <Typography sx={{ color: "#818cf8", fontSize: "0.76rem", fontFamily: "monospace", mt: 0.2 }}>
-                  ID: {device.assetCode}
-                </Typography>
-              </Box>
-            </Box>
-
-            {/* Description */}
-            <Typography sx={{ color: "#cbd5e1", fontSize: "0.8rem", fontWeight: 650, mb: 1 }}>
-              Description
-            </Typography>
-            <Box
-              component="textarea"
-              rows={4}
-              value={issueDescription}
-              onChange={(e: any) => setIssueDescription(e.target.value)}
-              placeholder="Describe the issue, symptoms, or failure details..."
-              required
-              sx={{
-                width: "100%",
-                borderRadius: "12px",
-                border: "1px solid rgba(255, 255, 255, 0.12)",
-                backgroundColor: "#030712",
-                color: "#f8fafc",
-                p: 1.5,
-                fontSize: "0.85rem",
-                outline: "none",
-                resize: "none",
-                mb: 2.5,
-                fontFamily: "inherit",
-                boxSizing: "border-box",
-                "&:focus": { borderColor: "#6366f1" },
-              }}
-            />
-
-            {/* Attachment Upload Button & Previews */}
-            <Box sx={{ mb: 3 }}>
-              <Button
-                component="label"
-                variant="outlined"
-                disabled={attachments.length >= 5}
-                startIcon={<AttachFileIcon />}
+            {visibleRows.map((row) => (
+              <Box
+                key={row.field}
                 sx={{
-                  width: "100%",
-                  borderRadius: "12px",
-                  border: "1px dashed rgba(255, 255, 255, 0.2)",
-                  color: attachments.length >= 5 ? "#64748b" : "#38bdf8",
-                  py: 1.2,
-                  fontSize: "0.84rem",
-                  textTransform: "none",
-                  fontWeight: 650,
-                  backgroundColor: "rgba(255, 255, 255, 0.02)",
-                  cursor: attachments.length >= 5 ? "not-allowed" : "pointer",
-                  "&:hover": {
-                    borderColor: attachments.length >= 5 ? "rgba(255, 255, 255, 0.2)" : "#818cf8",
-                    backgroundColor: attachments.length >= 5 ? "transparent" : "rgba(99, 102, 241, 0.08)",
-                    color: attachments.length >= 5 ? "#64748b" : "#ffffff",
-                  },
+                  backgroundColor: isDark ? "#131b2e" : "#f8fafc",
+                  border: isDark ? "1px solid rgba(99, 102, 241, 0.18)" : "1px solid #e2e8f0",
+                  borderRadius: "16px",
+                  p: 2,
                 }}
               >
-                Add attachments
-                <input
-                  type="file"
-                  hidden
-                  multiple
-                  accept="image/*,.pdf,.doc,.docx,.txt"
-                  disabled={attachments.length >= 5}
-                  onChange={handleAddFiles}
-                />
-              </Button>
-
-              {/* Limit & size info */}
-              <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mt: 0.8, px: 0.5 }}>
-                <Typography sx={{ fontSize: "0.72rem", color: "#64748b" }}>
-                  Up to 5 attachments · Max 25 MB total
+                <Typography
+                  sx={{
+                    color: isDark ? "#94a3b8" : "#64748b",
+                    fontSize: "0.7rem",
+                    fontWeight: 700,
+                    textTransform: "uppercase",
+                    letterSpacing: "0.05em",
+                    mb: 0.5,
+                  }}
+                >
+                  {row.label}
                 </Typography>
-                {attachments.length > 0 && (
-                  <Typography sx={{ fontSize: "0.72rem", color: "#38bdf8", fontWeight: 650 }}>
-                    {attachments.length}/5 ({formatFileSize(attachments.reduce((sum, a) => sum + a.size, 0))})
-                  </Typography>
-                )}
+                <Typography
+                  sx={{
+                    color: row.highlight
+                      ? (isDark ? "#38bdf8" : "#4f46e5")
+                      : (isDark ? "#ffffff" : "#08131e"),
+                    fontWeight: row.highlight ? 800 : 700,
+                    fontSize: "0.95rem",
+                    wordBreak: "break-word",
+                    fontFamily: row.highlight ? "monospace" : "inherit",
+                  }}
+                >
+                  {row.value || "—"}
+                </Typography>
               </Box>
-
-              {/* Attachment Previews */}
-              {attachments.length > 0 && (
-                <Box sx={{ display: "flex", flexDirection: "column", gap: 1, mt: 1.5 }}>
-                  {attachments.map((item) => (
-                    <Box
-                      key={item.id}
-                      onClick={(e) => handleOpenAttachment(item, e)}
-                      sx={{
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "space-between",
-                        p: "8px 12px",
-                        borderRadius: "10px",
-                        backgroundColor: "rgba(255, 255, 255, 0.04)",
-                        border: "1px solid rgba(255, 255, 255, 0.08)",
-                        gap: 1.5,
-                        cursor: "pointer",
-                        transition: "all 0.2s ease",
-                        "&:hover": {
-                          backgroundColor: "rgba(255, 255, 255, 0.08)",
-                          borderColor: "rgba(99, 102, 241, 0.4)",
-                          transform: "translateY(-1px)",
-                        },
-                      }}
-                    >
-                      {/* Thumbnail or File icon */}
-                      <Box sx={{ display: "flex", alignItems: "center", gap: 1.2, minWidth: 0, flex: 1 }}>
-                        {item.isImage ? (
-                          <Box
-                            component="img"
-                            src={item.url}
-                            alt={item.name}
-                            sx={{
-                              width: 40,
-                              height: 40,
-                              borderRadius: "8px",
-                              objectFit: "cover",
-                              border: "1px solid rgba(255, 255, 255, 0.15)",
-                              flexShrink: 0,
-                            }}
-                          />
-                        ) : (
-                          <Box
-                            sx={{
-                              width: 40,
-                              height: 40,
-                              borderRadius: "8px",
-                              backgroundColor: "rgba(99, 102, 241, 0.15)",
-                              color: "#818cf8",
-                              display: "grid",
-                              placeItems: "center",
-                              flexShrink: 0,
-                            }}
-                          >
-                            <AttachFileIcon sx={{ fontSize: 20 }} />
-                          </Box>
-                        )}
-
-                        {/* File Name & Size */}
-                        <Box sx={{ minWidth: 0, flex: 1 }}>
-                          <Box sx={{ display: "flex", alignItems: "center", gap: 0.6 }}>
-                            <Typography
-                              sx={{
-                                fontSize: "0.8rem",
-                                fontWeight: 650,
-                                color: "#f1f5f9",
-                                whiteSpace: "nowrap",
-                                overflow: "hidden",
-                                textOverflow: "ellipsis",
-                              }}
-                            >
-                              {item.name}
-                            </Typography>
-                            <OpenInNewIcon sx={{ fontSize: 13, color: "#64748b", flexShrink: 0 }} />
-                          </Box>
-                          <Typography sx={{ fontSize: "0.7rem", color: "#64748b" }}>
-                            {formatFileSize(item.size)} · Click to view
-                          </Typography>
-                        </Box>
-                      </Box>
-
-                      {/* Remove Button */}
-                      <Tooltip title="Remove file">
-                        <IconButton
-                          size="small"
-                          onClick={(e) => handleRemoveAttachment(item.id, e)}
-                          sx={{
-                            color: "#94a3b8",
-                            p: 0.6,
-                            borderRadius: "8px",
-                            "&:hover": { color: "#f87171", backgroundColor: "rgba(239, 68, 68, 0.14)" },
-                          }}
-                        >
-                          <CloseIcon sx={{ fontSize: 16 }} />
-                        </IconButton>
-                      </Tooltip>
-                    </Box>
-                  ))}
-                </Box>
-              )}
-            </Box>
-
-            {/* Submit button */}
-            <Button
-              fullWidth
-              type="submit"
-              disabled={isSubmitting}
-              variant="contained"
-              endIcon={<SendIcon sx={{ fontSize: 16 }} />}
-              sx={{
-                backgroundColor: "#6366f1",
-                color: "#ffffff",
-                fontWeight: 700,
-                borderRadius: "14px",
-                py: 1.3,
-                fontSize: "0.9rem",
-                textTransform: "none",
-                boxShadow: "0 4px 16px rgba(99, 102, 241, 0.35)",
-                "&:hover": { backgroundColor: "#4f46e5" },
-              }}
-            >
-              {isSubmitting ? "Submitting issue..." : "Submit issue"}
-            </Button>
+            ))}
           </Box>
         </Box>
       </Box>
-    )
-  }
+
+      {/* Pinned Action Buttons Footer */}
+      <Box
+        sx={{
+          flexShrink: 0,
+          p: { xs: 2, sm: 2.2 },
+          px: { xs: 2.5, sm: 3.5 },
+          borderTop: isDark ? "1px solid rgba(99, 102, 241, 0.18)" : "1px solid #e2e8f0",
+          backgroundColor: isDark ? "rgba(14,20,36,0.98)" : "rgba(255,255,255,0.98)",
+          backdropFilter: "blur(12px)",
+          display: "flex",
+          justifyContent: { xs: "stretch", sm: "flex-end" },
+          alignItems: "center",
+          zIndex: 10,
+        }}
+      >
+        <Button
+          variant="outlined"
+          onClick={onClose}
+          startIcon={<CloseIcon sx={{ fontSize: 18 }} />}
+          sx={{
+            width: { xs: "100%", sm: "auto" },
+            minWidth: { sm: 120 },
+            borderColor: isDark ? "rgba(255, 255, 255, 0.16)" : "#cbd5e1",
+            color: isDark ? "#94a3b8" : "#64748b",
+            fontWeight: 650,
+            fontSize: "0.9rem",
+            py: { xs: 1.25, sm: 1.15 },
+            px: { sm: 3.5 },
+            borderRadius: "14px",
+            textTransform: "none",
+            backgroundColor: isDark ? "rgba(255, 255, 255, 0.03)" : "#f8fafc",
+            "&:hover": {
+              borderColor: isDark ? "rgba(255, 255, 255, 0.3)" : "#94a3b8",
+              backgroundColor: isDark ? "rgba(255, 255, 255, 0.08)" : "#e2e8f0",
+              color: isDark ? "#ffffff" : "#0f172a",
+            },
+          }}
+        >
+          Close
+        </Button>
+      </Box>
+
+      {/* REPORT AN ISSUE MODAL */}
+      {
+        showIssueModal && (
+          <Box
+            sx={{
+              position: "fixed",
+              inset: 0,
+              zIndex: 10000,
+              backgroundColor: "rgba(3, 7, 18, 0.8)",
+              backdropFilter: "blur(12px)",
+              display: "flex",
+              alignItems: { xs: "flex-end", sm: "center" },
+              justifyContent: "center",
+              p: { xs: 0, sm: 2 },
+            }}
+          >
+            <Box
+              sx={{
+                backgroundColor: "#111827",
+                border: "1px solid rgba(255, 255, 255, 0.12)",
+                borderRadius: { xs: "24px 24px 0 0", sm: "24px" },
+                width: "100%",
+                maxWidth: 480,
+                boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.8)",
+                overflow: "hidden",
+                maxHeight: "92vh",
+                display: "flex",
+                flexDirection: "column",
+              }}
+            >
+              {/* Modal Header */}
+              <Box
+                sx={{
+                  px: { xs: 2.5, sm: 3 },
+                  py: 2.2,
+                  borderBottom: "1px solid rgba(255, 255, 255, 0.08)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  backgroundColor: "#162032",
+                }}
+              >
+                <Box sx={{ display: "flex", alignItems: "center", gap: 1.2 }}>
+                  <ReportProblemOutlinedIcon sx={{ color: "#f87171", fontSize: 22 }} />
+                  <Typography variant="h6" sx={{ fontWeight: 700, fontSize: "1.05rem", color: "#fff" }}>
+                    Report Device Issue
+                  </Typography>
+                </Box>
+
+                <IconButton
+                  size="small"
+                  onClick={() => setShowIssueModal(false)}
+                  sx={{ color: "#94a3b8" }}
+                >
+                  <CloseIcon fontSize="small" />
+                </IconButton>
+              </Box>
+
+              {/* Form Input: Only Device details (name, id), Description, and Attachment upload */}
+              <Box
+                component="form"
+                onSubmit={handleSubmitIssue}
+                sx={{ p: { xs: 2.5, sm: 3 }, overflowY: "auto" }}
+              >
+                {/* Target Device Details (Name & ID) */}
+                <Box
+                  sx={{
+                    backgroundColor: "rgba(255, 255, 255, 0.03)",
+                    border: "1px solid rgba(255, 255, 255, 0.08)",
+                    borderRadius: "14px",
+                    p: "14px 16px",
+                    mb: 2.5,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                  }}
+                >
+                  <Box sx={{ minWidth: 0 }}>
+                    <Typography sx={{ color: "#94a3b8", fontSize: "0.72rem", textTransform: "uppercase", fontWeight: 700 }}>
+                      Device Details
+                    </Typography>
+                    <Typography sx={{ color: "#ffffff", fontWeight: 750, fontSize: "0.95rem", mt: 0.2 }}>
+                      {device.model}
+                    </Typography>
+                    <Typography sx={{ color: "#818cf8", fontSize: "0.76rem", fontFamily: "monospace", mt: 0.2 }}>
+                      ID: {device.assetCode}
+                    </Typography>
+                  </Box>
+                </Box>
+
+                {/* Description */}
+                <Typography sx={{ color: "#cbd5e1", fontSize: "0.8rem", fontWeight: 650, mb: 1 }}>
+                  Description
+                </Typography>
+                <Box
+                  component="textarea"
+                  rows={4}
+                  value={issueDescription}
+                  onChange={(e: any) => setIssueDescription(e.target.value)}
+                  placeholder="Describe the issue, symptoms, or failure details..."
+                  required
+                  sx={{
+                    width: "100%",
+                    borderRadius: "12px",
+                    border: "1px solid rgba(255, 255, 255, 0.12)",
+                    backgroundColor: "#030712",
+                    color: "#f8fafc",
+                    p: 1.5,
+                    fontSize: "0.85rem",
+                    outline: "none",
+                    resize: "none",
+                    mb: 2.5,
+                    fontFamily: "inherit",
+                    boxSizing: "border-box",
+                    "&:focus": { borderColor: "#6366f1" },
+                  }}
+                />
+
+                {/* Attachment Upload Button & Previews */}
+                <Box sx={{ mb: 3 }}>
+                  <Button
+                    component="label"
+                    variant="outlined"
+                    disabled={attachments.length >= 3}
+                    startIcon={<AttachFileIcon />}
+                    sx={{
+                      width: "100%",
+                      borderRadius: "12px",
+                      border: "1px dashed rgba(255, 255, 255, 0.2)",
+                      color: attachments.length >= 3 ? "#64748b" : "#38bdf8",
+                      py: 1.2,
+                      fontSize: "0.84rem",
+                      textTransform: "none",
+                      fontWeight: 650,
+                      backgroundColor: "rgba(255, 255, 255, 0.02)",
+                      cursor: attachments.length >= 3 ? "not-allowed" : "pointer",
+                      "&:hover": {
+                        borderColor: attachments.length >= 3 ? "rgba(255, 255, 255, 0.2)" : "#818cf8",
+                        backgroundColor: attachments.length >= 3 ? "transparent" : "rgba(99, 102, 241, 0.08)",
+                        color: attachments.length >= 3 ? "#64748b" : "#ffffff",
+                      },
+                    }}
+                  >
+                    Add attachments
+                    <input
+                      type="file"
+                      hidden
+                      multiple
+                      accept=".jpg,.jpeg,.png,.mp4,image/jpeg,image/png,video/mp4"
+                      disabled={attachments.length >= 3}
+                      onChange={handleAddFiles}
+                    />
+                  </Button>
+
+                  {/* Limit & size info */}
+                  <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mt: 0.8, px: 0.5 }}>
+                    <Typography sx={{ fontSize: "0.72rem", color: "#64748b" }}>
+                      Up to 3 attachments (JPG, PNG, MP4) · Max 25 MB per file
+                    </Typography>
+                    {attachments.length > 0 && (
+                      <Typography sx={{ fontSize: "0.72rem", color: "#38bdf8", fontWeight: 650 }}>
+                        {attachments.length}/3 ({formatFileSize(attachments.reduce((sum, a) => sum + a.size, 0))})
+                      </Typography>
+                    )}
+                  </Box>
+
+                  {/* Attachment Previews */}
+                  {attachments.length > 0 && (
+                    <Box sx={{ display: "flex", flexDirection: "column", gap: 1, mt: 1.5 }}>
+                      {attachments.map((item) => (
+                        <Box
+                          key={item.id}
+                          onClick={(e) => handleOpenAttachment(item, e)}
+                          sx={{
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "space-between",
+                            p: "8px 12px",
+                            borderRadius: "10px",
+                            backgroundColor: "rgba(255, 255, 255, 0.04)",
+                            border: "1px solid rgba(255, 255, 255, 0.08)",
+                            gap: 1.5,
+                            cursor: "pointer",
+                            transition: "all 0.2s ease",
+                            "&:hover": {
+                              backgroundColor: "rgba(255, 255, 255, 0.08)",
+                              borderColor: "rgba(99, 102, 241, 0.4)",
+                              transform: "translateY(-1px)",
+                            },
+                          }}
+                        >
+                          {/* Thumbnail or File icon */}
+                          <Box sx={{ display: "flex", alignItems: "center", gap: 1.2, minWidth: 0, flex: 1 }}>
+                            {item.isImage ? (
+                              <Box
+                                component="img"
+                                src={item.url}
+                                alt={item.name}
+                                sx={{
+                                  width: 40,
+                                  height: 40,
+                                  borderRadius: "8px",
+                                  objectFit: "cover",
+                                  border: "1px solid rgba(255, 255, 255, 0.15)",
+                                  flexShrink: 0,
+                                }}
+                              />
+                            ) : item.isVideo ? (
+                              <Box
+                                sx={{
+                                  width: 40,
+                                  height: 40,
+                                  borderRadius: "8px",
+                                  backgroundColor: "rgba(168, 85, 247, 0.18)",
+                                  color: "#c084fc",
+                                  display: "grid",
+                                  placeItems: "center",
+                                  border: "1px solid rgba(168, 85, 247, 0.3)",
+                                  flexShrink: 0,
+                                }}
+                              >
+                                <VideocamIcon sx={{ fontSize: 22 }} />
+                              </Box>
+                            ) : (
+                              <Box
+                                sx={{
+                                  width: 40,
+                                  height: 40,
+                                  borderRadius: "8px",
+                                  backgroundColor: "rgba(99, 102, 241, 0.15)",
+                                  color: "#818cf8",
+                                  display: "grid",
+                                  placeItems: "center",
+                                  flexShrink: 0,
+                                }}
+                              >
+                                <AttachFileIcon sx={{ fontSize: 20 }} />
+                              </Box>
+                            )}
+
+                            {/* File Name & Size */}
+                            <Box sx={{ minWidth: 0, flex: 1 }}>
+                              <Box sx={{ display: "flex", alignItems: "center", gap: 0.6 }}>
+                                <Typography
+                                  sx={{
+                                    fontSize: "0.8rem",
+                                    fontWeight: 650,
+                                    color: "#f1f5f9",
+                                    whiteSpace: "nowrap",
+                                    overflow: "hidden",
+                                    textOverflow: "ellipsis",
+                                  }}
+                                >
+                                  {item.name}
+                                </Typography>
+                                <OpenInNewIcon sx={{ fontSize: 13, color: "#64748b", flexShrink: 0 }} />
+                              </Box>
+                              <Typography sx={{ fontSize: "0.7rem", color: "#64748b" }}>
+                                {formatFileSize(item.size)} · Click to view
+                              </Typography>
+                            </Box>
+                          </Box>
+
+                          {/* Remove Button */}
+                          <Tooltip title="Remove file">
+                            <IconButton
+                              size="small"
+                              onClick={(e) => handleRemoveAttachment(item.id, e)}
+                              sx={{
+                                color: "#94a3b8",
+                                p: 0.6,
+                                borderRadius: "8px",
+                                "&:hover": { color: "#f87171", backgroundColor: "rgba(239, 68, 68, 0.14)" },
+                              }}
+                            >
+                              <CloseIcon sx={{ fontSize: 16 }} />
+                            </IconButton>
+                          </Tooltip>
+                        </Box>
+                      ))}
+                    </Box>
+                  )}
+                </Box>
+
+                {/* Submit button */}
+                <Button
+                  fullWidth
+                  type="submit"
+                  disabled={isSubmitting}
+                  variant="contained"
+                  endIcon={<SendIcon sx={{ fontSize: 16 }} />}
+                  sx={{
+                    backgroundColor: "#6366f1",
+                    color: "#ffffff",
+                    fontWeight: 700,
+                    borderRadius: "14px",
+                    py: 1.3,
+                    fontSize: "0.9rem",
+                    textTransform: "none",
+                    boxShadow: "0 4px 16px rgba(99, 102, 241, 0.35)",
+                    "&:hover": { backgroundColor: "#4f46e5" },
+                  }}
+                >
+                  {isSubmitting ? "Submitting issue..." : "Submit issue"}
+                </Button>
+              </Box>
+            </Box>
+          </Box>
+        )
+      }
     </Box >
   );
 }

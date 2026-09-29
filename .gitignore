@@ -23,6 +23,7 @@ test-results/
 
 # production
 /build
+/public/uploads/
 
 # logs
 *.log

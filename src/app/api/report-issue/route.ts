@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import pool from "@/lib/db";
+import { validateAttachments } from "@/lib/attachmentValidation";
 import fs from "fs/promises";
 import path from "path";
 
@@ -58,14 +59,35 @@ export async function POST(request: NextRequest) {
       if (mNote) managerNote = String(mNote);
 
       const uploadedFiles = formData.getAll("files");
+      const filesToValidate: { name: string; size: number; file: File }[] = [];
       for (const f of uploadedFiles) {
-        if (f instanceof File && f.size > 0) {
-          const bytes = await f.arrayBuffer();
-          filesToSave.push({
-            name: f.name,
-            buffer: Buffer.from(bytes),
-          });
+        if (f instanceof File && f.name) {
+          filesToValidate.push({ name: f.name, size: f.size, file: f });
         }
+      }
+
+      const validation = validateAttachments(filesToValidate);
+      if (!validation.valid) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: validation.error,
+            errorDetails: {
+              message: validation.error,
+              details: validation.details,
+            },
+            statusCode: 400,
+          },
+          { status: 400 }
+        );
+      }
+
+      for (const item of filesToValidate) {
+        const bytes = await item.file.arrayBuffer();
+        filesToSave.push({
+          name: item.name,
+          buffer: Buffer.from(bytes),
+        });
       }
     } else {
       const json = await request.json();
@@ -345,7 +367,7 @@ export async function POST(request: NextRequest) {
         const finalFilePath = path.join(targetFolder, safeName);
         await fs.writeFile(finalFilePath, item.buffer);
 
-        const dbFilePath = `${relativeFolder.replace(/\\/g, "/")}/${safeName}`;
+        const dbFilePath = `${relativeFolder.replace(/\\/g, "/")}/${safeName}`.toLowerCase();
         await client.query(
           `INSERT INTO request_attachments (
              user_request_id,

@@ -26,6 +26,7 @@ import HistoryIcon from "@mui/icons-material/History";
 import FlashOnIcon from "@mui/icons-material/FlashOn";
 import AddIcon from "@mui/icons-material/Add";
 import DevicesIcon from "@mui/icons-material/Devices";
+import Skeleton from "@mui/material/Skeleton";
 
 import ScannerViewfinder from "./ScannerViewfinder";
 import DeviceDetailsSheet from "./DeviceDetailsSheet";
@@ -33,7 +34,13 @@ import AuthenticatorTokenCard from "./AuthenticatorTokenCard";
 import ScannerBackground from "./ScannerBackground";
 import InstantLogo from "./InstantLogo";
 import UserProfilePill from "./UserProfilePill";
+import ThemeLoader from "@/components/common/ThemeLoader";
 import { ToastContainer, toast } from "react-toastify";
+import {
+  formatScanTimestamp,
+  formatScanTimestampMobile,
+  getHoverScanDateTime,
+} from "@/utils/scanTimeFormatter";
 
 import {
   parseScannedQr,
@@ -46,7 +53,7 @@ import { generateTOTP, formatOtpCode, getRemainingSeconds } from "@/lib/totp";
 // Recent scan entry structure
 interface RecentScanItem {
   device: DeviceDetailView;
-  scannedAt: number; // millisecond timestamp
+  scannedAt: number | string; // millisecond timestamp or ISO date string
 }
 
 // 2FA Pop-up Modal state
@@ -188,9 +195,9 @@ interface ScannerDashboardProps {
 
 export default function ScannerDashboard({ initialTab }: ScannerDashboardProps = {}) {
   const { data: session } = useSession();
-  const userRole = (session?.user as any)?.role || "Administrator";
-  const userName = session?.user?.name || "Ashiq S";
-  const userEmail = session?.user?.email || "ashiq@company.com";
+  const userRole = (session?.user as any)?.role || "Employee";
+  const userName = session?.user?.name || (session?.user?.email ? session.user.email.split("@")[0] : "User");
+  const userEmail = session?.user?.email || "";
 
   const [themeMode, setThemeMode] = useState<"dark" | "light">("dark");
   const isDark = themeMode === "dark";
@@ -265,6 +272,9 @@ export default function ScannerDashboard({ initialTab }: ScannerDashboardProps =
   // Core Data States
   const [justScannedItem, setJustScannedItem] = useState<RecentScanItem | null>(null);
   const [recentScans, setRecentScans] = useState<RecentScanItem[]>([]);
+  const [loadingLast, setLoadingLast] = useState(false);
+  const [loadingRecent, setLoadingRecent] = useState(false);
+  const [loadingTokens, setLoadingTokens] = useState(false);
   const [authTokens, setAuthTokens] = useState<AuthenticatorTokenData[]>([]);
 
   // Search in Authenticators tab
@@ -289,18 +299,97 @@ export default function ScannerDashboard({ initialTab }: ScannerDashboardProps =
     }
   }, []);
 
-  // Load real scan history and authenticators from localStorage
-  useEffect(() => {
+  // Fetch last scanned and recent scan history from backend APIs
+  const loadScannedHistory = useCallback(async () => {
+    setLoadingLast(true);
+    setLoadingRecent(true);
+
     try {
-      const storedScans = localStorage.getItem("assethub_recent_scans");
-      if (storedScans) {
-        const parsed = JSON.parse(storedScans);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          setJustScannedItem(parsed[0]);
-          setRecentScans(parsed.slice(1));
-        }
+      const [lastRes, recentRes] = await Promise.all([
+        fetch("/api/devices/scanned/last").then((res) => (res.ok ? res.json() : null)).catch(() => null),
+        fetch("/api/devices/scanned/recent").then((res) => (res.ok ? res.json() : null)).catch(() => null),
+      ]);
+
+      if (lastRes && lastRes.deviceId && lastRes.device) {
+        setJustScannedItem({
+          device: {
+            id: lastRes.device.id || lastRes.device.assetCode,
+            assetCode: lastRes.device.assetCode,
+            assetType: lastRes.device.assetType,
+            model: lastRes.device.model,
+            storage: lastRes.device.storage || "",
+            operatingSystem: lastRes.device.operatingSystem || "",
+            ram: lastRes.device.ram || "",
+            processor: lastRes.device.processor || "",
+            purchaseDate: lastRes.device.purchaseDate || "",
+            status: lastRes.device.status || "active",
+            purchaseAmount: lastRes.device.purchaseAmount,
+            location: lastRes.device.location,
+          },
+          scannedAt: lastRes.scannedAt,
+        });
+      } else {
+        // Fallback to local storage if available
+        try {
+          const storedScans = localStorage.getItem("assethub_recent_scans");
+          if (storedScans) {
+            const parsed = JSON.parse(storedScans);
+            if (Array.isArray(parsed) && parsed.length > 0) {
+              setJustScannedItem(parsed[0]);
+              setRecentScans(parsed.slice(1));
+              return;
+            }
+          }
+        } catch { }
+        setJustScannedItem(null);
       }
-    } catch { }
+
+      const lastScannedCode = (
+        lastRes?.device?.assetCode ||
+        lastRes?.deviceId ||
+        lastRes?.device?.id ||
+        ""
+      ).toLowerCase().trim();
+
+      if (recentRes && Array.isArray(recentRes.devices)) {
+        const recents: RecentScanItem[] = recentRes.devices
+          .filter((item: any) => {
+            if (!item.device) return false;
+            const itemCode = (item.device.assetCode || item.device.id || item.deviceId || "").toLowerCase().trim();
+            return !lastScannedCode || itemCode !== lastScannedCode;
+          })
+          .slice(0, 3)
+          .map((item: any) => ({
+            device: {
+              id: item.device.id || item.device.assetCode,
+              assetCode: item.device.assetCode,
+              assetType: item.device.assetType,
+              model: item.device.model,
+              storage: item.device.storage || "",
+              operatingSystem: item.device.operatingSystem || "",
+              ram: item.device.ram || "",
+              processor: item.device.processor || "",
+              purchaseDate: item.device.purchaseDate || "",
+              status: item.device.status || "active",
+              purchaseAmount: item.device.purchaseAmount,
+              location: item.device.location,
+            },
+            scannedAt: item.scannedAt,
+          }));
+        setRecentScans(recents);
+      } else {
+        setRecentScans([]);
+      }
+    } catch (err) {
+      console.error("Error loading scan history:", err);
+    } finally {
+      setLoadingLast(false);
+      setLoadingRecent(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadScannedHistory();
 
     try {
       const storedTokens = localStorage.getItem("instant_auth_tokens") || localStorage.getItem("assethub_auth_tokens");
@@ -315,10 +404,11 @@ export default function ScannerDashboard({ initialTab }: ScannerDashboardProps =
         }
       }
     } catch { }
-  }, []);
+  }, [loadScannedHistory]);
 
   // Sync TOTP tokens from database (totp_data)
   const fetchVaultTokens = useCallback(async () => {
+    setLoadingTokens(true);
     try {
       const res = await fetch("/api/vault/totp");
       if (res.ok) {
@@ -333,6 +423,8 @@ export default function ScannerDashboard({ initialTab }: ScannerDashboardProps =
       }
     } catch (err) {
       console.warn("Could not sync tokens from vault API:", err);
+    } finally {
+      setLoadingTokens(false);
     }
   }, []);
 
@@ -364,49 +456,6 @@ export default function ScannerDashboard({ initialTab }: ScannerDashboardProps =
       toast.info(cleanMsg);
     }
   }, []);
-
-  // Format relative timestamp
-  const getRelativeTime = (timestamp: number) => {
-    const diffSec = Math.floor((Date.now() - timestamp) / 1000);
-    if (diffSec < 20) return "Just now";
-    if (diffSec < 60) return `${diffSec}s ago`;
-    const diffMin = Math.floor(diffSec / 60);
-    if (diffMin < 60) return `${diffMin}m ago`;
-    const diffHours = Math.floor(diffMin / 60);
-    if (diffHours < 24) return `${diffHours}h ago`;
-    return `${Math.floor(diffHours / 24)}d ago`;
-  };
-
-  // Format displayed scan timestamp (e.g. "12:45 PM" or "Sep 24, 12:45 PM")
-  const formatTimestamp = (timestamp: number) => {
-    const date = new Date(timestamp);
-    const now = new Date();
-    const isToday = date.toDateString() === now.toDateString();
-    const timeStr = date.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
-    if (isToday) {
-      return timeStr;
-    }
-    const dateStr = date.toLocaleDateString([], { month: "short", day: "numeric" });
-    return `${dateStr}, ${timeStr}`;
-  };
-
-  // Detailed timestamp with exact time and relative age for hover tooltip
-  const getFullDateTimeString = (timestamp: number) => {
-    const date = new Date(timestamp);
-    const dateStr = date.toLocaleDateString([], {
-      weekday: "short",
-      month: "short",
-      day: "numeric",
-      year: "numeric",
-    });
-    const timeStr = date.toLocaleTimeString([], {
-      hour: "numeric",
-      minute: "2-digit",
-      second: "2-digit",
-    });
-    const rel = getRelativeTime(timestamp);
-    return `${dateStr} at ${timeStr} • ${rel}`;
-  };
 
   // Universal QR scan handler
   const lastScanRef = React.useRef<{ payload: string; time: number }>({ payload: "", time: 0 });
@@ -477,40 +526,31 @@ export default function ScannerDashboard({ initialTab }: ScannerDashboardProps =
       showToast(`✓ Authenticator enrolled: ${token.issuer}`);
     } else {
       const code = (parsed.assetCode || rawPayload).trim();
-      const device = await fetchDeviceByCode(code);
 
-      // Validation: If device does not exist in the database, do not fabricate mock data
-      if (!device) {
-        showToast(`Device "${code}" not found in inventory.`);
-        return;
-      }
+      try {
+        const res = await fetch("/api/devices/scanned", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ deviceId: code }),
+        });
+        const data = await res.json();
 
-      const scanEntry: RecentScanItem = {
-        device,
-        scannedAt: Date.now(),
-      };
+        if (res.ok && data.success) {
+          showToast(`✓ Asset scanned: ${code}`);
+          await loadScannedHistory();
 
-      // Update Card 2 (Recent scans):
-      // Exclude the newly scanned device from recent scans,
-      // and move the previous justScannedItem into recent scans.
-      setRecentScans((prev) => {
-        let updated = prev.filter((item) => item.device.assetCode !== device.assetCode);
-        if (justScannedItem && justScannedItem.device.assetCode !== device.assetCode) {
-          updated = [justScannedItem, ...updated.filter((item) => item.device.assetCode !== justScannedItem.device.assetCode)];
+          // Automatically open device details modal
+          const device = await fetchDeviceByCode(code);
+          if (device) {
+            setSelectedDeviceModal(device);
+          }
+        } else {
+          showToast(data.error || `Device "${code}" not found in inventory.`);
         }
-        const finalRecent = updated.slice(0, 10);
-        try {
-          localStorage.setItem("assethub_recent_scans", JSON.stringify([scanEntry, ...finalRecent]));
-        } catch { }
-        return finalRecent;
-      });
-
-      // Set Card 1 (Top right) to the newly scanned device
-      setJustScannedItem(scanEntry);
-
-      // Automatically open the Asset Details Modal for valid devices
-      setSelectedDeviceModal(device);
-      showToast(`Asset identified: ${device.model}`);
+      } catch (err) {
+        console.error("Scan error:", err);
+        showToast("Error recording scan");
+      }
     }
   };
 
@@ -520,6 +560,16 @@ export default function ScannerDashboard({ initialTab }: ScannerDashboardProps =
     if (!q) return true;
     return token.issuer.toLowerCase().includes(q) || token.account.toLowerCase().includes(q);
   });
+
+  // Exclude current last-scanned device and limit to max 3 items
+  const displayedRecentScans = recentScans
+    .filter((item) => {
+      if (!justScannedItem) return true;
+      const justCode = (justScannedItem.device.assetCode || justScannedItem.device.id || "").toLowerCase().trim();
+      const itemCode = (item.device.assetCode || item.device.id || "").toLowerCase().trim();
+      return itemCode !== justCode;
+    })
+    .slice(0, 3);
 
   return (
     <Box
@@ -861,27 +911,35 @@ export default function ScannerDashboard({ initialTab }: ScannerDashboardProps =
                     </Typography>
                   </Box>
 
-                  {justScannedItem && (
-                    <Tooltip title={getFullDateTimeString(justScannedItem.scannedAt)} arrow placement="top">
+                  {!loadingLast && justScannedItem && (
+                    <Tooltip title={getHoverScanDateTime(justScannedItem.scannedAt)} arrow placement="top">
                       <Box
                         sx={{
-                          px: 1,
-                          py: 0.2,
+                          px: { xs: 0.9, sm: 1.2 },
+                          py: 0.3,
                           borderRadius: "8px",
                           backgroundColor: isDark ? "rgba(56, 189, 248, 0.12)" : "#e0f2fe",
                           color: isDark ? "#38bdf8" : "#0284c7",
-                          fontSize: "0.72rem",
+                          fontSize: { xs: "0.68rem", sm: "0.72rem" },
                           fontWeight: 700,
                           cursor: "pointer",
+                          whiteSpace: "nowrap",
                         }}
                       >
-                        {formatTimestamp(justScannedItem.scannedAt)}
+                        <Box component="span" sx={{ display: { xs: "none", sm: "inline" } }}>
+                          {formatScanTimestamp(justScannedItem.scannedAt)}
+                        </Box>
+                        <Box component="span" sx={{ display: { xs: "inline", sm: "none" } }}>
+                          {formatScanTimestampMobile(justScannedItem.scannedAt)}
+                        </Box>
                       </Box>
                     </Tooltip>
                   )}
                 </Box>
 
-                {justScannedItem ? (
+                {loadingLast ? (
+                  <ThemeLoader variant="card" isDark={isDark} message="Fetching last scanned asset..." />
+                ) : justScannedItem ? (
                   <Box>
                     <Box sx={{ display: "flex", gap: { xs: 1.5, sm: 2 }, alignItems: "center", mb: 2 }}>
                       <Box
@@ -1013,11 +1071,13 @@ export default function ScannerDashboard({ initialTab }: ScannerDashboardProps =
                   </Box>
                 </Box>
 
-                {recentScans.length > 0 ? (
+                {loadingRecent ? (
+                  <ThemeLoader variant="card" isDark={isDark} message="Syncing scan history..." />
+                ) : displayedRecentScans.length > 0 ? (
                   <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
-                    {recentScans.map((item) => (
+                    {displayedRecentScans.map((item, idx) => (
                       <Box
-                        key={item.device.assetCode}
+                        key={(item.device.assetCode || item.device.id) + "-" + idx}
                         onClick={() => {
                           setSelectedDeviceModal(item.device);
                         }}
@@ -1065,9 +1125,23 @@ export default function ScannerDashboard({ initialTab }: ScannerDashboardProps =
                         </Box>
 
                         <Box sx={{ display: "flex", alignItems: "center", gap: 1.2, flexShrink: 0, ml: 1 }}>
-                          <Tooltip title={getFullDateTimeString(item.scannedAt)} arrow placement="top">
-                            <Typography sx={{ fontSize: "0.72rem", color: isDark ? "#94a3b8" : "#8b989f", fontWeight: 550, cursor: "pointer" }}>
-                              {formatTimestamp(item.scannedAt)}
+                          <Tooltip title={getHoverScanDateTime(item.scannedAt)} arrow placement="top">
+                            <Typography
+                              sx={{
+                                fontSize: { xs: "0.68rem", sm: "0.72rem" },
+                                color: isDark ? "#94a3b8" : "#8b989f",
+                                fontWeight: 550,
+                                cursor: "pointer",
+                                whiteSpace: "nowrap",
+                                textAlign: "right",
+                              }}
+                            >
+                              <Box component="span" sx={{ display: { xs: "none", sm: "inline" } }}>
+                                {formatScanTimestamp(item.scannedAt)}
+                              </Box>
+                              <Box component="span" sx={{ display: { xs: "inline", sm: "none" } }}>
+                                {formatScanTimestampMobile(item.scannedAt)}
+                              </Box>
                             </Typography>
                           </Tooltip>
                           <Tooltip title="Show the full details" arrow placement="top">
@@ -1103,7 +1177,7 @@ export default function ScannerDashboard({ initialTab }: ScannerDashboardProps =
                   </Box>
                 ) : (
                   <Typography sx={{ color: isDark ? "#64748b" : "#94a3b8", fontSize: "0.85rem", textAlign: "center", my: "auto" }}>
-                    No recent history.
+                    No recent scans
                   </Typography>
                 )}
 
@@ -1223,7 +1297,14 @@ export default function ScannerDashboard({ initialTab }: ScannerDashboardProps =
             </Box>
 
             {/* Authenticators List */}
-            {filteredTokens.length === 0 ? (
+            {loadingTokens ? (
+              <ThemeLoader
+                variant="tab"
+                isDark={isDark}
+                message="Loading 2FA Authenticators..."
+                submessage="Securely retrieving credentials from vault..."
+              />
+            ) : filteredTokens.length === 0 ? (
               <Box
                 sx={{
                   textAlign: "center",

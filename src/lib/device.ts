@@ -1,6 +1,6 @@
-import pool from "./db";
-import { filterDeviceFields, normalizeRole } from "./permissions";
-import { Device, DeviceDetail } from "@/types/device";
+import pool from "./db.ts";
+import { filterDeviceFields, normalizeRole } from "./permissions.ts";
+import type { Device, DeviceDetail } from "../types/device.ts";
 
 export type { Device, DeviceDetail };
 
