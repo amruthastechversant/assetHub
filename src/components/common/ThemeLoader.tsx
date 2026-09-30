@@ -28,7 +28,7 @@ export interface ThemeLoaderProps {
 }
 
 /**
- * Uiverse.io geometric loader by bociKond, tailored for AssetHub design system.
+ * Uiverse.io geometric loader by bociKond, tailored for Instant design system.
  * Features expanding, rotating radial petals and glowing multi-layer aura.
  */
 export default function ThemeLoader({

@@ -293,7 +293,7 @@ export default function ScannerDashboard({ initialTab }: ScannerDashboardProps =
 
   // Initialize theme from storage
   useEffect(() => {
-    const savedTheme = localStorage.getItem("instant_scanner_theme") || localStorage.getItem("assethub_scanner_theme");
+    const savedTheme = localStorage.getItem("instant_scanner_theme");
     if (savedTheme === "light" || savedTheme === "dark") {
       setThemeMode(savedTheme);
     }
@@ -331,7 +331,7 @@ export default function ScannerDashboard({ initialTab }: ScannerDashboardProps =
       } else {
         // Fallback to local storage if available
         try {
-          const storedScans = localStorage.getItem("assethub_recent_scans");
+          const storedScans = localStorage.getItem("instant_recent_scans");
           if (storedScans) {
             const parsed = JSON.parse(storedScans);
             if (Array.isArray(parsed) && parsed.length > 0) {
@@ -392,7 +392,7 @@ export default function ScannerDashboard({ initialTab }: ScannerDashboardProps =
     loadScannedHistory();
 
     try {
-      const storedTokens = localStorage.getItem("instant_auth_tokens") || localStorage.getItem("assethub_auth_tokens");
+      const storedTokens = localStorage.getItem("instant_auth_tokens");
       if (storedTokens) {
         const parsed = JSON.parse(storedTokens);
         if (Array.isArray(parsed) && parsed.length > 0) {

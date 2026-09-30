@@ -2,8 +2,8 @@ import type { MetadataRoute } from "next";
 
 export default function manifest(): MetadataRoute.Manifest {
     return {
-        name: "AssetHub",
-        short_name: "AssetHub",
+        name: "Instant",
+        short_name: "Instant",
         description: "Company device information and issue reporting",
         start_url: "/",
         display: "standalone",

@@ -5,7 +5,7 @@ export default function Loading() {
   return (
     <ThemeLoader
       variant="page"
-      message="Loading AssetHub..."
+      message="Loading Instant..."
       submessage="Preparing your secure environment"
     />
   );

@@ -5,7 +5,7 @@ const IV_LENGTH = 12; // 96 bits for GCM
 const TAG_LENGTH = 16; // 128 bits auth tag
 
 function getDerivedKey(): Buffer {
-  const secret = process.env.AUTH_SECRET || "assethub-default-vault-secret-key-32b";
+  const secret = process.env.AUTH_SECRET || "instant-default-vault-secret-key-32b";
   return crypto.createHash("sha256").update(secret).digest();
 }
 
